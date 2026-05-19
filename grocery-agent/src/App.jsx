@@ -1,9 +1,18 @@
 import { useState, useRef, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat"];
 const VEG_DAYS = ["Thu"];
 const TODAY_IDX = Math.min(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1, 5);
 const TODAY_NAME = DAYS[TODAY_IDX] || "Mon";
+const TODAY_LABEL = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" });
+const DAY_OF_MONTH = new Date().getDate();
+const isVegDay = VEG_DAYS.includes(TODAY_NAME);
 
 const PLATFORMS = {
   licious:   { label: "Licious",   color: "#E8473F", emoji: "🥩", search: q => `https://www.licious.in/search?q=${encodeURIComponent(q)}` },
@@ -14,242 +23,138 @@ const PLATFORMS = {
 
 function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
 
-const SYSTEM_PROMPT = `You are a smart grocery and meal planning agent for an Indian household in Bengaluru, India.
-HOUSEHOLD: 2 adults who work out regularly.
-- User (Supriya): 100g protein/day
-- Vivek: 120g protein/day
-- Combined protein goal: 220g/day
-MONTHLY FOOD BUDGET: ₹35,000 to ₹40,000 (they currently overspend at ₹50,000/month and want to reduce).
-WEEKLY GROCERY BUDGET: ₹8,000 to ₹10,000 for fresh groceries only.
-USE REALISTIC INDIAN PRICES IN BENGALURU:
-- Eggs: ₹7-8 per egg, ₹80-90 per dozen
-- Chicken breast: ₹280-320 per kg
-- Fish (rohu/tilapia): ₹200-250 per kg  
-- Paneer: ₹80-100 per 200g
-- Vegetables: ₹30-60 per kg
-- Fruits: ₹60-100 per kg
-MEAL PATTERN: Simple home-style Odia/Indian food.
-- Breakfast: FIXED EVERY DAY — 8 egg white bhurji + 1-2 slices of bread + 1 glass protein smoothie with a fruit (dragon fruit, banana, apple, mango, berries etc). This never changes.
-- Lunch: one curry/dal + one sabzi + rice or roti + curd
-- Evening: chai, fruit, roasted chana, boiled eggs, or protein shake
-- Dinner: lighter version — dal or curry + sabzi + roti
-
-ACTUAL DISHES THEY COOK (rotate these, don't repeat same dish twice in a week):
-CURRIES/DAL: dal tadka, dal fry, rajma, black chana gravy, matar paneer, aloo gobi gravy, torai (ridge gourd) curry, santula (Odia mixed veg curry), kadhi, egg curry, chicken curry, mackerel curry, fish fry
-SABZI (dry): aloo gobi, mix veg sabzi, bhindi fry, palak, beans sabzi, cabbage sabzi, baingan bharta, dry chicken fry, chicken sukka, dry fish fry
-RICE DISHES: plain rice, jeera rice, kadhi chawal (kadhi as curry + plain rice — a favourite combo)
-ROTI: plain roti or phulka
-NEVER suggest exotic or restaurant-style dishes. Keep it simple and home-style.
-VEG DAYS: Thursday only (no meat, fish, eggs on Thursday).
-PROTEIN SOURCES: 
-- Eggs (daily breakfast staple)
-- Chicken (2-3 times a week)
-- Fish: mackerel (bangda) weekly, seabass occasionally (once a week max)
-- Paneer (on veg days or when needed)
-- Tempeh (occasionally, as a paneer alternative)
-- Dal and curd (daily)
-FISH/SEAFOOD RULES:
-- ONLY sea fish — no river fish, no prawns
-- Allowed: mackerel (bangda), seabass, tuna, pomfret, sardines
-- No fish curry — only dry fry (quick to make)
-- Good combos: kadhi + mackerel dry fry, dal + seabass fry, santula + sardine fry
-- Seafood 2-3 times a week max
-SEAFOOD PRICES IN BENGALURU:
-- Mackerel (bangda): ₹180-220 per kg
-- Seabass: ₹400-500 per kg
-- Pomfret: ₹350-450 per kg
-- Sardines: ₹150-180 per kg
-- Tempeh: ₹120-150 per 200g pack
-STAPLES ALWAYS AT HOME (never put in shopping list): milk, coffee, curd, onion, tomato, ginger, garlic, oil, atta, rice, dal, salt, spices.
-PLATFORMS: Licious for chicken/fish/eggs; Blinkit or Instamart for vegetables, paneer, tempeh and dairy; Mango for bulk staples.
-
-CRITICAL INSTRUCTIONS:
-- If the user asks to plan a week, respond with ONLY a raw JSON object starting with {"action":"PLAN_WEEK"...} — no text before or after, no markdown
-- If the user asks to plan today or a single day, FIRST propose the meals in plain text and ask if it's okay. Say something like: "Here's what I'm thinking for today:\n\nBreakfast: ...\nLunch: ...\nEvening: ...\nDinner: ...\n\nDoes this work for you? Any changes?"
-- Only after the user confirms (says yes/okay/looks good), respond with the PLAN_DAY JSON including the shopping list
-- If user asks for changes, adjust and propose again before giving the JSON
-- For all other questions respond in plain text
-- AVOID fish curry in any plan — only dry fish fry is allowed (quick to make)
-
-MEAL COMBINATION RULES:
-- Every lunch and dinner = one main (curry/dal/kadhi) + one sabzi (dry) + rice OR roti
-- Example combos: "Kadhi + rice + dry chicken fry", "Dal tadka + roti + aloo gobi", "Mackerel curry + rice + bhindi fry"
-- Breakfast always simple: eggs/poha/upma/idli + milk/coffee
-- Evening: sprouted moong / sprouted chana / pesarettu (moong dal crepes) with coconut chutney / fruit. NO boiled eggs as snack.
-- Thursday: strictly veg — use dal, kadhi, matar paneer, santula, chana, rajma
-
-SHOPPING LIST RULES:
-- Include ALL ingredients needed for the week including: vegetables (with exact kg), meat/fish (exact kg), eggs (exact count)
-- Include staples that need restocking: rice (kg), atta (kg), besan (if kadhi), curd (kg)
-- Group by what needs to be bought fresh vs weekly stock
-- Use real Bengaluru market prices
-- Platform: Licious for chicken/fish/eggs, Blinkit/Instamart for veggies/dairy, Mango for rice/atta/bulk
-
-PLAN_WEEK JSON (fill all fields with real values):
-{"action":"PLAN_WEEK","days":[{"day":"Mon","veg":false,"meals":{"breakfast":{"dish":"","protein":0},"lunch":{"dish":"curry + sabzi + rice/roti","protein":0},"evening":{"dish":"","protein":0},"dinner":{"dish":"curry + sabzi + roti","protein":0}},"totalProtein":0,"totalCalories":0},{"day":"Tue","veg":false,"meals":{"breakfast":{"dish":"","protein":0},"lunch":{"dish":"","protein":0},"evening":{"dish":"","protein":0},"dinner":{"dish":"","protein":0}},"totalProtein":0,"totalCalories":0},{"day":"Wed","veg":false,"meals":{"breakfast":{"dish":"","protein":0},"lunch":{"dish":"","protein":0},"evening":{"dish":"","protein":0},"dinner":{"dish":"","protein":0}},"totalProtein":0,"totalCalories":0},{"day":"Thu","veg":true,"meals":{"breakfast":{"dish":"","protein":0},"lunch":{"dish":"","protein":0},"evening":{"dish":"","protein":0},"dinner":{"dish":"","protein":0}},"totalProtein":0,"totalCalories":0},{"day":"Fri","veg":false,"meals":{"breakfast":{"dish":"","protein":0},"lunch":{"dish":"","protein":0},"evening":{"dish":"","protein":0},"dinner":{"dish":"","protein":0}},"totalProtein":0,"totalCalories":0},{"day":"Sat","veg":false,"meals":{"breakfast":{"dish":"","protein":0},"lunch":{"dish":"","protein":0},"evening":{"dish":"","protein":0},"dinner":{"dish":"","protein":0}},"totalProtein":0,"totalCalories":0}],"shoppingList":[{"item":"Chicken","qty":"1.5 kg","platform":"licious","estimatedPrice":450,"days":["Mon","Wed"]},{"item":"Mackerel","qty":"1 kg","platform":"licious","estimatedPrice":220,"days":["Fri"]},{"item":"Eggs","qty":"2 dozen","platform":"licious","estimatedPrice":180,"days":["Mon","Tue","Wed","Thu","Fri","Sat"]},{"item":"Rice","qty":"3 kg","platform":"mango","estimatedPrice":180,"days":["all"]},{"item":"Atta","qty":"2 kg","platform":"mango","estimatedPrice":120,"days":["all"]},{"item":"Potatoes","qty":"1 kg","platform":"blinkit","estimatedPrice":40,"days":["Tue","Thu"]},{"item":"Cauliflower","qty":"1 head","platform":"blinkit","estimatedPrice":40,"days":["Tue"]}],"estimatedWeeklyCost":8500}
-
-PLAN_DAY JSON:
-{"action":"PLAN_DAY","day":"Mon","veg":false,"meals":{"breakfast":{"dish":"","protein":0},"lunch":{"dish":"curry + sabzi + rice","protein":0},"evening":{"dish":"","protein":0},"dinner":{"dish":"curry + sabzi + roti","protein":0}},"shoppingList":[{"item":"","qty":"","platform":"blinkit","estimatedPrice":0,"forMeal":""}],"totalProtein":0,"totalCalories":0,"estimatedCost":0}`;
-
 const SUGGESTIONS = [
+  { label: `🍳 Plan today (${TODAY_NAME})`, msg: `Plan today's meals for ${TODAY_NAME}` },
   { label: "📅 Plan my week", msg: "Plan my week Mon to Sat" },
-  { label: `🍳 Plan today (${TODAY_NAME})`, msg: `Plan today's meals (${TODAY_NAME})` },
   { label: "📧 Email grocery list", msg: "Email me the grocery list" },
-  { label: "💰 How to save money?", msg: "How can we reduce our ₹50k monthly grocery spend without losing protein?" },
+  { label: "💰 How are we doing on budget?", msg: "How much have we spent this month?" },
 ];
 
 export default function App() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("ga_apikey2") || "");
-  const [keyInput, setKeyInput] = useState("");
   const [messages, setMessages] = useState([{
     role: "assistant", type: "text",
-    content: `Hey! 👋 I'm your grocery agent.\n\nI know you and Vivek eat simple home-style Indian food, Thursday is veg day, and you both work out.\n\nTap a suggestion or just tell me what you need.`,
+    content: `Hey Supriya! 👋 I'm your Sous Chef agent.\n\nI remember what you've eaten, track your grocery spend, and plan meals so you never repeat the same combo twice.\n\n${isVegDay ? "🥦 Today is veg day!" : "🥩 Non-veg day today."} What do you need?`,
   }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [weekPlan, setWeekPlan] = useState(null);
   const [shoppingList, setShoppingList] = useState([]);
-  const [activeDay, setActiveDay] = useState(TODAY_NAME);
-  const [panel, setPanel] = useState("chat");
+  const [monthExpenses, setMonthExpenses] = useState([]);
+  const [totalMonth, setTotalMonth] = useState(0);
+  const [showExpenses, setShowExpenses] = useState(false);
+  const [newExp, setNewExp] = useState({ platform: "blinkit", amount: "", note: "" });
+  const [checkedItems, setCheckedItems] = useState({});
   const bottomRef = useRef();
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  function saveKey() {
-    const k = keyInput.trim();
-    if (!k) return alert("Please enter an API key");
-    localStorage.setItem("ga_apikey2", k);
-    setApiKey(k);
-    setKeyInput("");
+  useEffect(() => { loadExpenses(); loadShoppingList(); }, []);
+
+  async function loadExpenses() {
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const { data } = await supabase
+      .from("expenses")
+      .select("*")
+      .gte("expense_date", monthStr + "-01")
+      .order("expense_date", { ascending: false });
+    setMonthExpenses(data || []);
+    setTotalMonth((data || []).reduce((a, b) => a + b.amount, 0));
+  }
+
+  async function loadShoppingList() {
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+    const weekStr = weekStart.toISOString().split("T")[0];
+    const { data } = await supabase
+      .from("shopping_items")
+      .select("*")
+      .gte("week_start", weekStr);
+    if (data?.length) setShoppingList(data);
   }
 
   async function sendMessage(text) {
-    if (!text.trim() || loading || !apiKey) return;
+    if (!text.trim() || loading) return;
+
+    // Handle email request locally
+    if (/email|send|mail/i.test(text) && shoppingList.length > 0) {
+      const body = Object.entries(PLATFORMS).map(([pid, p]) => {
+        const items = shoppingList.filter(i => i.platform === pid);
+        if (!items.length) return "";
+        return `${p.emoji} ${p.label}:\n${items.map(i => `  - ${i.item} (${i.qty}) — ${fmt(i.estimated_price)}`).join("\n")}`;
+      }).filter(Boolean).join("\n\n");
+      const total = shoppingList.reduce((a, b) => a + (b.estimated_price || 0), 0);
+      window.open(`mailto:?subject=${encodeURIComponent("🛒 Sous Chef — Weekly Grocery List")}&body=${encodeURIComponent(`Hi!\n\nThis week's grocery list:\n\n${body}\n\nEstimated total: ${fmt(total)}\n\n— Sous Chef 🍳`)}`);
+      setMessages(prev => [...prev, { role: "user", type: "text", content: text }, {
+        role: "assistant", type: "text",
+        content: `📧 Opened your email app with the grocery list!\n\nEstimated total: **${fmt(total)}** across ${shoppingList.length} items.`,
+      }]);
+      setInput("");
+      return;
+    }
+
     const userMsg = { role: "user", type: "text", content: text };
-    const history = [...messages.filter(m => m.type !== "typing"), userMsg];
     setMessages(prev => [...prev, userMsg, { role: "assistant", type: "typing" }]);
     setInput("");
     setLoading(true);
 
-    // If asking to email and we have a list, open mailto
-    if (/email|send|mail|alert|notify/i.test(text) && shoppingList.length > 0) {
-      const body = Object.entries(PLATFORMS).map(([pid, p]) => {
-        const items = shoppingList.filter(i => i.platform === pid);
-        if (!items.length) return "";
-        return `${p.emoji} ${p.label}:\n${items.map(i => `  - ${i.item} (${i.qty}) — ${fmt(i.estimatedPrice)}`).join("\n")}`;
-      }).filter(Boolean).join("\n\n");
-      const total = shoppingList.reduce((a, b) => a + (b.estimatedPrice || 0), 0);
-      const subject = encodeURIComponent("🛒 Weekly Grocery List");
-      const bodyEnc = encodeURIComponent(`Hi,\n\nHere's this week's grocery list:\n\n${body}\n\nEstimated total: ${fmt(total)}\n\n— Grocery Agent`);
-      window.open(`mailto:?subject=${subject}&body=${bodyEnc}`);
-      setMessages(prev => [...prev.filter(m => m.type !== "typing"), {
-        role: "assistant", type: "text",
-        content: `📧 Opened your email app with the grocery list!\n\nJust add Vivek's email and hit send. Estimated total: **${fmt(total)}**`,
-      }]);
-      setLoading(false);
-      return;
-    }
-
     try {
-      const apiMessages = history.map(m => ({ role: m.role, content: m.content }));
-      const isGemini = apiKey.startsWith("AIza");
-      const isGroq = apiKey.startsWith("gsk_");
-      let raw = "";
+      const apiMessages = [...messages, userMsg]
+        .filter(m => m.type !== "typing")
+        .map(m => ({ role: m.role, content: m.content }));
 
-      if (isGroq) {
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            max_tokens: 2000,
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              ...apiMessages,
-            ],
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message || `Groq error ${res.status}`);
-        raw = data.choices?.[0]?.message?.content || "";
-      } else if (isGemini) {
-        // Build a single user message with full context
-        const fullContext = SYSTEM_PROMPT + "\n\n" + apiMessages.map(m => 
-          (m.role === "user" ? "User: " : "Assistant: ") + m.content
-        ).join("\n");
-        
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: fullContext }] }],
-            generationConfig: { maxOutputTokens: 2000, temperature: 0.7 },
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message || `API error ${res.status}`);
-        raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (!raw) throw new Error("Empty response");
-      } else {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 1000,
-            system: SYSTEM_PROMPT,
-            messages: apiMessages,
-          }),
-        });
-        if (res.status === 401) throw new Error("invalid_key");
-        const data = await res.json();
-        raw = data.content?.find(b => b.type === "text")?.text || "";
-      }
+      const res = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: apiMessages }),
+      });
 
-      let parsed = null;
-      try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch {}
+      const data = await res.json();
+      const { response, parsed } = data;
 
       setMessages(prev => prev.filter(m => m.type !== "typing"));
 
-      if (parsed?.action === "PLAN_WEEK") {
-        setWeekPlan(parsed);
-        setShoppingList(parsed.shoppingList || []);
-        setPanel("plan");
+      if (parsed?.shoppingList) {
+        setShoppingList(parsed.shoppingList);
+        await loadExpenses();
         setMessages(prev => [...prev, {
-          role: "assistant", type: "plan_week",
-          content: `Done! Mon–Sat plan is ready 🗓️\n\nShopping list: **${(parsed.shoppingList || []).length} items** · Estimated **${fmt(parsed.estimatedWeeklyCost)}** for the week.\n\nWant me to email the grocery list to you and Vivek?`,
-          data: parsed,
-        }]);
-      } else if (parsed?.action === "PLAN_DAY") {
-        setShoppingList(parsed.shoppingList || []);
-        setPanel("plan");
-        setMessages(prev => [...prev, {
-          role: "assistant", type: "plan_day",
-          content: `Here's your ${parsed.day} plan ${parsed.veg ? "🥦 (veg day)" : "🥩"}\n\nProtein: **${parsed.totalProtein}g** · ${parsed.totalCalories} cal · Est. groceries: **${fmt(parsed.estimatedCost)}**`,
-          data: parsed,
+          role: "assistant", type: "plan",
+          content: response,
+          shoppingList: parsed.shoppingList,
         }]);
       } else {
-        setMessages(prev => [...prev, { role: "assistant", type: "text", content: raw }]);
+        setMessages(prev => [...prev, { role: "assistant", type: "text", content: response }]);
       }
     } catch (e) {
-      const msg = e.message === "invalid_key"
-        ? "❌ Invalid API key. Please check and update it below."
-        : `Something went wrong: ${e.message}`;
-      setMessages(prev => [...prev.filter(m => m.type !== "typing"), { role: "assistant", type: "text", content: msg }]);
+      setMessages(prev => [...prev.filter(m => m.type !== "typing"), {
+        role: "assistant", type: "text", content: "Something went wrong. Try again!",
+      }]);
     }
     setLoading(false);
   }
 
+  async function addExpense() {
+    if (!newExp.amount) return;
+    const { data } = await supabase.from("expenses").insert({
+      platform: newExp.platform,
+      amount: parseInt(newExp.amount),
+      note: newExp.note,
+      expense_date: new Date().toISOString().split("T")[0],
+    }).select();
+    if (data) {
+      setMonthExpenses(prev => [data[0], ...prev]);
+      setTotalMonth(prev => prev + parseInt(newExp.amount));
+    }
+    setNewExp({ platform: "blinkit", amount: "", note: "" });
+  }
+
+  async function deleteExpense(id, amount) {
+    await supabase.from("expenses").delete().eq("id", id);
+    setMonthExpenses(prev => prev.filter(e => e.id !== id));
+    setTotalMonth(prev => prev - amount);
+  }
+
   function renderText(text) {
-    return text.split(/(\*\*[^*]+\*\*)/).map((p, i) =>
+    return (text || "").split(/(\*\*[^*]+\*\*)/).map((p, i) =>
       p.startsWith("**") ? <strong key={i} style={{ color: "#fff" }}>{p.slice(2, -2)}</strong> : p
     );
   }
@@ -264,17 +169,49 @@ export default function App() {
         </div>
       </div>
     );
+
     return (
       <div key={i} style={{ display: "flex", gap: 10, marginBottom: 16, justifyContent: isUser ? "flex-end" : "flex-start", alignItems: "flex-start" }}>
         {!isUser && <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1A1A1A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>🤖</div>}
-        <div style={{ maxWidth: "82%" }}>
+        <div style={{ maxWidth: "85%" }}>
           <div style={{ background: isUser ? "#1C2E1C" : "#141414", border: `1px solid ${isUser ? "#2A4A2A" : "#1E1E1E"}`, borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px", padding: "12px 16px", fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#F0EBE3" }}>
             {renderText(msg.content)}
           </div>
-          {(msg.type === "plan_week" || msg.type === "plan_day") && (
-            <button onClick={() => setPanel(p => p === "plan" ? "chat" : "plan")} style={{ marginTop: 6, padding: "6px 14px", background: "#F9C23C22", border: "1px solid #F9C23C44", borderRadius: 8, color: "#F9C23C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-              {panel === "plan" ? "Hide plan ↑" : "View plan ↓"}
-            </button>
+          {/* Shopping list inline */}
+          {msg.type === "plan" && msg.shoppingList?.length > 0 && (
+            <div style={{ marginTop: 10, background: "#0D0D0D", border: "1px solid #1A1A1A", borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #1A1A1A", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", fontFamily: "monospace" }}>Shopping List</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#F9C23C", fontFamily: "monospace" }}>
+                  {fmt(msg.shoppingList.reduce((a, b) => a + (b.estimatedPrice || b.estimated_price || 0), 0))}
+                </span>
+              </div>
+              {Object.entries(PLATFORMS).map(([pid, pconf]) => {
+                const items = msg.shoppingList.filter(it => it.platform === pid);
+                if (!items.length) return null;
+                return (
+                  <div key={pid} style={{ padding: "10px 14px", borderBottom: "1px solid #111" }}>
+                    <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: pconf.color }}>{pconf.emoji} {pconf.label}</p>
+                    {items.map((item, j) => (
+                      <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input type="checkbox" checked={!!checkedItems[item.item]} onChange={() => setCheckedItems(c => ({ ...c, [item.item]: !c[item.item] }))} style={{ accentColor: pconf.color }} />
+                          <span style={{ fontSize: 12, textDecoration: checkedItems[item.item] ? "line-through" : "none", color: checkedItems[item.item] ? "#444" : "#F0EBE3" }}>{item.item}</span>
+                          <span style={{ fontSize: 11, color: "#444" }}>{item.qty}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 11, color: pconf.color, fontFamily: "monospace" }}>{fmt(item.estimatedPrice || item.estimated_price)}</span>
+                          <a href={pconf.search(item.item)} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: pconf.color, textDecoration: "none", padding: "2px 6px", background: pconf.color + "22", borderRadius: 4 }}>Order →</a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              <button onClick={() => sendMessage("Email me the grocery list")} style={{ width: "100%", padding: 10, background: "#4CAF7D", border: "none", color: "#000", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                📧 Email to Vivek
+              </button>
+            </div>
           )}
         </div>
         {isUser && <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1C2E1C", border: "1px solid #2A4A2A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>👤</div>}
@@ -282,133 +219,85 @@ export default function App() {
     );
   }
 
-  // ── Key setup screen ──────────────────────────────────────────────
-  if (!apiKey) return (
-    <div style={{ minHeight: "100vh", background: "#080808", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'DM Sans',sans-serif" }}>
-      <div style={{ maxWidth: 380, width: "100%" }}>
-        <h1 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 700, color: "#F0EBE3" }}>🛒 Grocery Agent</h1>
-        <p style={{ margin: "0 0 28px", fontSize: 13, color: "#555", lineHeight: 1.6 }}>Add your free Groq API key (gsk_...) from console.groq.com</p>
-        <label style={{ fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'DM Mono',monospace", display: "block", marginBottom: 8 }}>API Key</label>
-        <input
-          type="password" placeholder="gsk_... (Groq — free) or AIza... (Gemini)"
-          value={keyInput} onChange={e => setKeyInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && saveKey()}
-          style={{ width: "100%", background: "#111", border: "1px solid #222", borderRadius: 10, padding: "12px 16px", color: "#F0EBE3", fontSize: 14, fontFamily: "'DM Mono',monospace", boxSizing: "border-box", outline: "none", marginBottom: 10 }}
-        />
-        <button onClick={saveKey} style={{ width: "100%", padding: 13, background: "#4CAF7D", border: "none", borderRadius: 10, color: "#000", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-          Let's Go →
-        </button>
-        <p style={{ margin: "16px 0 0", fontSize: 12, color: "#333", lineHeight: 1.6, textAlign: "center" }}>
-          Get your key at <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{ color: "#4CAF7D" }}>console.anthropic.com</a>
-        </p>
-      </div>
-    </div>
-  );
+  const projected = DAY_OF_MONTH > 0 ? Math.round((totalMonth / DAY_OF_MONTH) * 31) : 0;
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#080808", color: "#F0EBE3", fontFamily: "'DM Sans',sans-serif" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
       {/* Header */}
-      <div style={{ padding: "16px 20px 14px", borderBottom: "1px solid #141414", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>🛒 Grocery Agent</h1>
-          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#444" }}>You + Vivek · Bengaluru · {TODAY_NAME} is {VEG_DAYS.includes(TODAY_NAME) ? "🥦 veg" : "🥩 non-veg"}</p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {shoppingList.length > 0 && (
-            <button onClick={() => setPanel(p => p === "plan" ? "chat" : "plan")} style={{ padding: "6px 12px", background: "#1A1A1A", border: "1px solid #252525", borderRadius: 8, color: "#888", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-              {panel === "plan" ? "Chat" : "Plan"} ↕
+      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #141414", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>🍳 Sous Chef</h1>
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: "#444" }}>Supriya + Vivek · Bengaluru · {TODAY_LABEL}</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ background: isVegDay ? "#0D1F12" : "#1A0A09", border: `1px solid ${isVegDay ? "#1E3323" : "#3A1510"}`, color: isVegDay ? "#4CAF7D" : "#E8473F", fontSize: 10, padding: "3px 8px", borderRadius: 20, fontWeight: 600 }}>
+              {isVegDay ? "🥦 Veg Day" : "🥩 Non-Veg"}
+            </span>
+            <button onClick={() => setShowExpenses(!showExpenses)} style={{ display: "block", marginTop: 6, marginLeft: "auto", background: "none", border: "none", cursor: "pointer", textAlign: "right" }}>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono',monospace", color: totalMonth > 40000 ? "#E8473F" : "#F0EBE3" }}>{fmt(totalMonth)}</p>
+              <p style={{ margin: "1px 0 0", fontSize: 9, color: "#444", fontFamily: "'DM Mono',monospace" }}>proj. {fmt(projected)} {showExpenses ? "↑" : "↓"}</p>
             </button>
-          )}
-          <button onClick={() => { localStorage.removeItem("ga_apikey"); setApiKey(""); }} style={{ padding: "6px 10px", background: "#1A0A09", border: "1px solid #2A1510", borderRadius: 8, color: "#666", fontSize: 11, cursor: "pointer" }} title="Change API key">🔑</button>
+          </div>
+        </div>
+
+        {/* Budget bar */}
+        <div style={{ marginTop: 10, background: "#1A1A1A", borderRadius: 2, height: 3 }}>
+          <div style={{ height: "100%", borderRadius: 2, width: `${Math.min((totalMonth / 40000) * 100, 100)}%`, background: totalMonth > 40000 ? "#E8473F" : totalMonth > 32000 ? "#F9C23C" : "#4CAF7D", transition: "width 0.5s" }} />
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0" }}>
-
-        {/* Week plan panel */}
-        {panel === "plan" && weekPlan && (
-          <div style={{ background: "#0D0D0D", border: "1px solid #1A1A1A", borderRadius: 16, marginBottom: 16, overflow: "hidden" }}>
-            <div style={{ display: "flex", borderBottom: "1px solid #1A1A1A", overflowX: "auto" }}>
-              {DAYS.map(d => {
-                const isVeg = VEG_DAYS.includes(d);
-                const isActive = d === activeDay;
-                const col = isVeg ? "#4CAF7D" : "#E8473F";
-                return (
-                  <button key={d} onClick={() => setActiveDay(d)} style={{ flex: 1, minWidth: 48, padding: "10px 4px", border: "none", background: isActive ? "#141414" : "transparent", cursor: "pointer", borderBottom: `2px solid ${isActive ? col : "transparent"}`, transition: "all 0.2s" }}>
-                    <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: isActive ? col : "#444", fontFamily: "'DM Mono',monospace" }}>{d}</p>
-                    <p style={{ margin: "2px 0 0", fontSize: 9, color: isVeg ? "#4CAF7D" : "#333" }}>{isVeg ? "veg" : "·"}</p>
-                  </button>
-                );
-              })}
-            </div>
-            {(() => {
-              const day = weekPlan.days?.find(d => d.day === activeDay);
-              if (!day) return null;
+      {/* Expense panel */}
+      {showExpenses && (
+        <div style={{ background: "#0D0D0D", borderBottom: "1px solid #1A1A1A", padding: "12px 16px", maxHeight: 280, overflowY: "auto", flexShrink: 0 }}>
+          {/* Platform breakdown */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto" }}>
+            {Object.entries(PLATFORMS).map(([pid, pconf]) => {
+              const amt = monthExpenses.filter(e => e.platform === pid).reduce((a, b) => a + b.amount, 0);
+              if (!amt) return null;
               return (
-                <div style={{ padding: "14px 16px" }}>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                    {[{ l: "Protein", v: `${day.totalProtein}g`, c: "#4CAF7D" }, { l: "Calories", v: day.totalCalories, c: "#F9C23C" }].map(s => (
-                      <div key={s.l} style={{ flex: 1, background: "#111", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                        <p style={{ margin: 0, fontSize: 10, color: "#444" }}>{s.l}</p>
-                        <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 700, color: s.c, fontFamily: "'DM Mono',monospace" }}>{s.v}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {Object.entries(day.meals).map(([name, meal]) => (
-                    <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #141414" }}>
-                      <div>
-                        <p style={{ margin: 0, fontSize: 10, color: "#444", textTransform: "capitalize", letterSpacing: 1 }}>{name}</p>
-                        <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 600 }}>{meal.dish}</p>
-                      </div>
-                      <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 10 }}>
-                        <p style={{ margin: 0, fontSize: 12, color: "#4CAF7D", fontFamily: "'DM Mono',monospace" }}>{meal.protein}g</p>
-                        <p style={{ margin: "2px 0 0", fontSize: 10, color: "#333" }}>⏱ {meal.prepTime}</p>
-                      </div>
-                    </div>
-                  ))}
+                <div key={pid} style={{ flexShrink: 0, background: pconf.bg || "#111", border: `1px solid ${pconf.color}33`, borderRadius: 8, padding: "8px 10px", minWidth: 70 }}>
+                  <p style={{ margin: 0, fontSize: 14 }}>{pconf.emoji}</p>
+                  <p style={{ margin: "2px 0", fontSize: 12, fontWeight: 700, color: pconf.color, fontFamily: "'DM Mono',monospace" }}>{fmt(amt)}</p>
+                  <p style={{ margin: 0, fontSize: 9, color: "#444" }}>{pconf.label}</p>
                 </div>
               );
-            })()}
-            {shoppingList.length > 0 && (
-              <div style={{ padding: "12px 16px", borderTop: "1px solid #1A1A1A" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <p style={{ margin: 0, fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'DM Mono',monospace" }}>Weekly Groceries</p>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#F9C23C", fontFamily: "'DM Mono',monospace" }}>{fmt(weekPlan.estimatedWeeklyCost)}</p>
-                </div>
-                {Object.entries(PLATFORMS).map(([pid, pconf]) => {
-                  const items = shoppingList.filter(i => i.platform === pid);
-                  if (!items.length) return null;
-                  return (
-                    <div key={pid} style={{ marginBottom: 10 }}>
-                      <p style={{ margin: "0 0 5px", fontSize: 11, fontWeight: 700, color: pconf.color }}>{pconf.emoji} {pconf.label}</p>
-                      {items.map((item, i) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "1px solid #0F0F0F" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: 12 }}>{item.item}</span>
-                            <span style={{ fontSize: 11, color: "#444" }}>{item.qty}</span>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: 12, color: pconf.color, fontFamily: "'DM Mono',monospace" }}>{fmt(item.estimatedPrice)}</span>
-                            <a href={pconf.search(item.item)} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: pconf.color, textDecoration: "none", padding: "2px 8px", background: pconf.color + "22", borderRadius: 4 }}>Order →</a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-                <button onClick={() => sendMessage("Email me the grocery list")} style={{ width: "100%", marginTop: 8, padding: 10, background: "#4CAF7D", border: "none", borderRadius: 10, color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                  📧 Email Grocery List to Vivek
-                </button>
-              </div>
-            )}
+            })}
           </div>
-        )}
 
-        {/* Messages */}
+          {/* Add expense */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <select value={newExp.platform} onChange={e => setNewExp(x => ({ ...x, platform: e.target.value }))} style={{ background: "#141414", border: "1px solid #222", borderRadius: 6, padding: "6px 8px", color: "#F0EBE3", fontSize: 12, fontFamily: "'DM Sans',sans-serif" }}>
+              {Object.entries(PLATFORMS).map(([pid, p]) => <option key={pid} value={pid}>{p.emoji} {p.label}</option>)}
+            </select>
+            <input type="number" placeholder="₹ Amount" value={newExp.amount} onChange={e => setNewExp(x => ({ ...x, amount: e.target.value }))} style={{ flex: 1, background: "#141414", border: "1px solid #222", borderRadius: 6, padding: "6px 8px", color: "#F0EBE3", fontSize: 12, fontFamily: "'DM Mono',monospace", outline: "none" }} />
+            <input placeholder="Note" value={newExp.note} onChange={e => setNewExp(x => ({ ...x, note: e.target.value }))} onKeyDown={e => e.key === "Enter" && addExpense()} style={{ flex: 1, background: "#141414", border: "1px solid #222", borderRadius: 6, padding: "6px 8px", color: "#F0EBE3", fontSize: 12, fontFamily: "'DM Sans',sans-serif", outline: "none" }} />
+            <button onClick={addExpense} style={{ padding: "6px 12px", background: "#4CAF7D", border: "none", borderRadius: 6, color: "#000", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+</button>
+          </div>
+
+          {/* Expense list */}
+          {monthExpenses.slice(0, 8).map(exp => {
+            const p = PLATFORMS[exp.platform] || PLATFORMS.blinkit;
+            return (
+              <div key={exp.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #111" }}>
+                <span style={{ fontSize: 14 }}>{p.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 500 }}>{exp.note || p.label}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: "#444" }}>{new Date(exp.expense_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</p>
+                </div>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: p.color, fontFamily: "'DM Mono',monospace" }}>{fmt(exp.amount)}</p>
+                <button onClick={() => deleteExpense(exp.id, exp.amount)} style={{ background: "none", border: "none", color: "#2A2A2A", cursor: "pointer", fontSize: 14 }}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0" }}>
         {messages.map((msg, i) => renderMsg(msg, i))}
-
-        {/* Suggestions */}
         {messages.length <= 1 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, marginLeft: 40 }}>
             {SUGGESTIONS.map((s, i) => (
@@ -423,12 +312,12 @@ export default function App() {
 
       {/* Quick replies */}
       {messages.length > 2 && !loading && (
-        <div style={{ padding: "10px 16px 0", display: "flex", gap: 6, overflowX: "auto" }}>
+        <div style={{ padding: "8px 16px 0", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0 }}>
           {[
-            shoppingList.length > 0 && { label: "📧 Email list", msg: "Email me the grocery list" },
+            { label: `🍳 Plan today`, msg: `Plan today's meals for ${TODAY_NAME}` },
             { label: "📅 Plan week", msg: "Plan my week Mon to Sat" },
-            { label: `🍳 Today (${TODAY_NAME})`, msg: `Plan today's meals (${TODAY_NAME})` },
-            weekPlan && { label: "💰 Save money", msg: "How can we reduce our grocery spend?" },
+            shoppingList.length > 0 && { label: "📧 Email list", msg: "Email me the grocery list" },
+            { label: "💰 Budget check", msg: "How much have we spent this month?" },
           ].filter(Boolean).map((s, i) => (
             <button key={i} onClick={() => sendMessage(s.msg)} style={{ flexShrink: 0, padding: "6px 12px", background: "#111", border: "1px solid #1E1E1E", borderRadius: 16, color: "#666", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", marginBottom: 6 }}>
               {s.label}
@@ -443,7 +332,7 @@ export default function App() {
           <input
             value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-            placeholder="Ask anything — plan week, email list, recipe ideas..."
+            placeholder="Ask anything — plan today, check budget, email list..."
             style={{ flex: 1, background: "#111", border: "1px solid #222", borderRadius: 12, padding: "12px 16px", color: "#F0EBE3", fontSize: 14, fontFamily: "'DM Sans',sans-serif", outline: "none" }}
           />
           <button onClick={() => sendMessage(input)} disabled={loading || !input.trim()} style={{ width: 44, height: 44, background: loading || !input.trim() ? "#141414" : "#4CAF7D", border: "none", borderRadius: 12, color: loading || !input.trim() ? "#333" : "#000", fontSize: 20, cursor: loading || !input.trim() ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
