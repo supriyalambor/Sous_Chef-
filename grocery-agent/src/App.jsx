@@ -60,7 +60,7 @@ export default function App() {
 
   function saveKey() {
     const k = keyInput.trim();
-    if (!k.startsWith("sk-")) return alert("API key should start with sk-ant-...");
+    if (!k) return alert("Please enter an API key");
     localStorage.setItem("ga_apikey", k);
     setApiKey(k);
     setKeyInput("");
@@ -95,25 +95,45 @@ export default function App() {
 
     try {
       const apiMessages = history.map(m => ({ role: m.role, content: m.content }));
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: apiMessages,
-        }),
-      });
+      const isGemini = apiKey.startsWith("AIza");
+      let raw = "";
 
-      if (res.status === 401) throw new Error("invalid_key");
-      const data = await res.json();
-      const raw = data.content?.find(b => b.type === "text")?.text || "";
+      if (isGemini) {
+        const geminiMessages = apiMessages.map(m => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }]
+        }));
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: geminiMessages,
+          }),
+        });
+        if (res.status === 400 || res.status === 403) throw new Error("invalid_key");
+        const data = await res.json();
+        raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      } else {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            system: SYSTEM_PROMPT,
+            messages: apiMessages,
+          }),
+        });
+        if (res.status === 401) throw new Error("invalid_key");
+        const data = await res.json();
+        raw = data.content?.find(b => b.type === "text")?.text || "";
+      }
 
       let parsed = null;
       try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch {}
