@@ -60,14 +60,31 @@ CONVERSATION FLOW FOR DAY PLANNING:
 3. After user confirms — save plan and give shopping list
 4. Never repeat same combo within 2 weeks
 
-When you need to use a tool, respond with JSON:
-{"tool": "get_meal_history", "params": {}}
-{"tool": "save_meal_plan", "params": {"date": "2026-05-19", "breakfast": "...", "lunch": "...", "dinner": "...", "evening_snack": "...", "total_protein": 220}}
-{"tool": "get_expenses", "params": {"month": "2026-05"}}
-{"tool": "save_expense", "params": {"platform": "licious", "amount": 450, "note": "chicken 1.5kg"}}
+RESPONSE FORMAT RULES — CRITICAL:
+- NEVER show JSON tool calls in your response
+- NEVER use markdown tables
+- NEVER use markdown headers (## or ###)  
+- Use simple plain text with line breaks
+- Use emojis for visual structure
 
-For regular responses, just reply in plain text.
-For meal plans after confirmation, include a shoppingList array in your response JSON.`;
+FOR DAY PLAN PROPOSAL (before confirmation):
+📅 Tuesday — Non-Veg
+
+🍳 Breakfast: 8 egg white bhurji + bread + dragon fruit smoothie
+
+🍛 Lunch + 🌙 Dinner (same, cooked once):
+Mackerel dry fry + Kadhi + Rice (lunch) / Roti (dinner)
+
+🌿 Evening: Sprouted moong + coconut chutney
+
+Protein: ~220g | Does this work? Any changes?
+
+FOR SHOPPING LIST (after confirmation), respond with this JSON immediately followed by a clean text summary:
+{"shoppingList": [{"item": "Mackerel", "qty": "500g", "platform": "licious", "estimatedPrice": 110}]}
+
+Then summarize: "Here's your shopping list — ₹X total across Y items. Tap Order → on each item or email the full list to Vivek."
+
+FOR BUDGET: Just say "You've spent ₹X this month. On track / ₹Y over budget. Projected ₹Z by month end." `;
 
 async function callTool(tool, params) {
   switch (tool) {
@@ -155,40 +172,53 @@ export default async function handler(req, res) {
 
   try {
     const { messages } = req.body;
-    let response = await callGroq(messages);
+    
+    // Pre-fetch meal history and expenses to include in context
+    const history = await callTool('get_meal_history', {});
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const expenses = await callTool('get_expenses', { month: monthStr });
+    
+    // Inject context into system
+    const contextMsg = {
+      role: 'user',
+      content: `CONTEXT (do not show this to user):
+Meal history last 2 weeks: ${JSON.stringify(history)}
+Current month expenses: total ₹${expenses.total}, breakdown by platform available.
+Today: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
 
-    // Check if agent wants to use a tool
-    let toolAttempts = 0;
-    while (toolAttempts < 3) {
-      let toolCall = null;
+Now respond to the user's request below. Never show raw JSON tool calls in your response. Never show table markdown. Respond in clean plain text with line breaks.`,
+    };
+
+    const augmentedMessages = [contextMsg, ...messages];
+    let response = await callGroq(augmentedMessages);
+
+    // Strip any leaked tool JSON from response
+    response = response.replace(/\{[\s]*"tool"[\s]*:.*?\}/gs, '').trim();
+    response = response.replace(/```json[\s\S]*?```/g, '').trim();
+    response = response.replace(/\|[\s\S]*?\|/g, '').trim(); // strip markdown tables
+
+    // Check if response contains a shopping list JSON
+    let parsed = null;
+    const jsonMatch = response.match(/\{[\s\S]*"shoppingList"[\s\S]*\}/);
+    if (jsonMatch) {
       try {
-        const parsed = JSON.parse(response.trim());
-        if (parsed.tool) toolCall = parsed;
+        parsed = JSON.parse(jsonMatch[0]);
+        // Remove JSON from text response
+        response = response.replace(jsonMatch[0], '').trim();
+        // Save shopping list
+        const weekStart = new Date().toISOString().split('T')[0];
+        await callTool('save_shopping_list', { week_start: weekStart, items: parsed.shoppingList });
       } catch {}
-
-      if (!toolCall) break;
-
-      // Execute tool
-      const toolResult = await callTool(toolCall.tool, toolCall.params || {});
-
-      // Send tool result back to agent
-      const updatedMessages = [
-        ...messages,
-        { role: 'assistant', content: response },
-        { role: 'user', content: `Tool result for ${toolCall.tool}: ${JSON.stringify(toolResult)}. Now continue with your response.` },
-      ];
-      response = await callGroq(updatedMessages);
-      toolAttempts++;
     }
 
-    // Parse final response - check if it has shopping list
-    let parsed = null;
-    try { parsed = JSON.parse(response.trim()); } catch {}
-
-    if (parsed?.shoppingList) {
-      // Save shopping list to DB
-      const weekStart = new Date().toISOString().split('T')[0];
-      await callTool('save_shopping_list', { week_start: weekStart, items: parsed.shoppingList });
+    // Save meal plan if present
+    if (parsed?.meals) {
+      await callTool('save_meal_plan', {
+        date: new Date().toISOString().split('T')[0],
+        ...parsed.meals,
+        confirmed: false,
+      });
     }
 
     res.status(200).json({ response, parsed });
