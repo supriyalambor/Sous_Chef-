@@ -290,6 +290,13 @@ When proposing a week plan, show each day like this:
 
 async function callTool(tool, params) {
   switch (tool) {
+    case 'get_prices': {
+      const { data } = await supabase
+        .from('prices')
+        .select('*')
+        .order('category');
+      return data || [];
+    }
     case 'get_meal_history': {
       const twoWeeksAgo = new Date();
       twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -381,16 +388,35 @@ export default async function handler(req, res) {
 
     // Pre-fetch context
     const history = await callTool('get_meal_history', {});
+    const prices = await callTool('get_prices', {});
     const now = new Date();
     const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const expenses = await callTool('get_expenses', { month: monthStr });
 
+    // Build price lookup string
+    const priceList = prices.map(p => 
+      `${p.item} (${p.quantity}): ₹${p.price_inr} from ${p.platform}`
+    ).join('\n');
+
     const contextMsg = {
       role: 'user',
       content: `[SYSTEM CONTEXT - DO NOT SHOW TO USER]
+Today: ${now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
 Meal history last 2 weeks: ${history.length > 0 ? JSON.stringify(history) : 'No history yet'}
 This month expenses: ₹${expenses.total} spent so far
-Today: ${now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+
+CURRENT PRICES FROM DATABASE (USE THESE EXACT PRICES):
+${priceList}
+
+WEEKLY COST CALCULATION GUIDE:
+- Eggs: 6 dozen × ₹132 = ₹792
+- Chicken days (3x): breast 450g ₹295 + curry cut 500g ₹260 = ₹555/day × 3 = ₹1,665
+- Mackerel days (2x): 500g × ₹350 = ₹700
+- Premium fish (1x): ₹900
+- Milk: 2 pouches/day × ₹53 × 7 = ₹742
+- Greek yogurt: 2 × ₹249 = ₹498
+- Paneer day: 2 × ₹136 = ₹272
+- Always use these exact prices when calculating shopping list costs
 [END CONTEXT]`,
     };
 
