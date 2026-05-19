@@ -48,10 +48,17 @@ PROTEIN SOURCES:
 - Paneer (on veg days or when needed)
 - Tempeh (occasionally, as a paneer alternative)
 - Dal and curd (daily)
-FISH NOTE: No fish curry — too time consuming to cook. Only dry fish fry is okay (quick to make).
-FISH PRICES IN BENGALURU:
-- Mackerel (bangda) for dry fry: ₹180-220 per kg
-- Seabass: ₹400-500 per kg (occasional, dry fry only)
+FISH/SEAFOOD RULES:
+- ONLY sea fish — no river fish, no prawns
+- Allowed: mackerel (bangda), seabass, tuna, pomfret, sardines
+- No fish curry — only dry fry (quick to make)
+- Good combos: kadhi + mackerel dry fry, dal + seabass fry, santula + sardine fry
+- Seafood 2-3 times a week max
+SEAFOOD PRICES IN BENGALURU:
+- Mackerel (bangda): ₹180-220 per kg
+- Seabass: ₹400-500 per kg
+- Pomfret: ₹350-450 per kg
+- Sardines: ₹150-180 per kg
 - Tempeh: ₹120-150 per 200g pack
 STAPLES ALWAYS AT HOME (never put in shopping list): milk, coffee, curd, onion, tomato, ginger, garlic, oil, atta, rice, dal, salt, spices.
 PLATFORMS: Licious for chicken/fish/eggs; Blinkit or Instamart for vegetables, paneer, tempeh and dairy; Mango for bulk staples.
