@@ -96,36 +96,46 @@ export default function App() {
     try {
       const apiMessages = history.map(m => ({ role: m.role, content: m.content }));
       const isGemini = apiKey.startsWith("AIza");
+      const isGroq = apiKey.startsWith("gsk_");
       let raw = "";
 
-      if (isGemini) {
-        // Gemini needs alternating user/model messages - merge consecutive same-role messages
-        const geminiMessages = [];
-        apiMessages.forEach(m => {
-          const role = m.role === "assistant" ? "model" : "user";
-          const last = geminiMessages[geminiMessages.length - 1];
-          if (last && last.role === role) {
-            last.parts[0].text += "\n" + m.content;
-          } else {
-            geminiMessages.push({ role, parts: [{ text: m.content }] });
-          }
-        });
-        // Must start with user message
-        if (geminiMessages[0]?.role === "model") geminiMessages.shift();
-        
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+      if (isGroq) {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: geminiMessages,
-            generationConfig: { maxOutputTokens: 2000 },
+            model: "llama-3.3-70b-versatile",
+            max_tokens: 2000,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              ...apiMessages,
+            ],
           }),
         });
         const data = await res.json();
-        if (data.error) throw new Error(data.error.message || "invalid_key");
+        if (!res.ok) throw new Error(data.error?.message || `Groq error ${res.status}`);
+        raw = data.choices?.[0]?.message?.content || "";
+      } else if (isGemini) {
+        // Build a single user message with full context
+        const fullContext = SYSTEM_PROMPT + "\n\n" + apiMessages.map(m => 
+          (m.role === "user" ? "User: " : "Assistant: ") + m.content
+        ).join("\n");
+        
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: fullContext }] }],
+            generationConfig: { maxOutputTokens: 2000, temperature: 0.7 },
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || `API error ${res.status}`);
         raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (!raw) throw new Error("Empty response from Gemini");
+        if (!raw) throw new Error("Empty response");
       } else {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
@@ -175,7 +185,7 @@ export default function App() {
     } catch (e) {
       const msg = e.message === "invalid_key"
         ? "❌ Invalid API key. Please check and update it below."
-        : "Something went wrong. Try again!";
+        : `Something went wrong: ${e.message}`;
       setMessages(prev => [...prev.filter(m => m.type !== "typing"), { role: "assistant", type: "text", content: msg }]);
     }
     setLoading(false);
@@ -220,10 +230,10 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#080808", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'DM Sans',sans-serif" }}>
       <div style={{ maxWidth: 380, width: "100%" }}>
         <h1 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 700, color: "#F0EBE3" }}>🛒 Grocery Agent</h1>
-        <p style={{ margin: "0 0 28px", fontSize: 13, color: "#555", lineHeight: 1.6 }}>Add your Gemini or Anthropic API key. It's saved only in your browser.</p>
+        <p style={{ margin: "0 0 28px", fontSize: 13, color: "#555", lineHeight: 1.6 }}>Add your free Groq API key (gsk_...) from console.groq.com</p>
         <label style={{ fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'DM Mono',monospace", display: "block", marginBottom: 8 }}>API Key</label>
         <input
-          type="password" placeholder="AIza... (Gemini) or sk-ant... (Anthropic)"
+          type="password" placeholder="gsk_... (Groq — free) or AIza... (Gemini)"
           value={keyInput} onChange={e => setKeyInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && saveKey()}
           style={{ width: "100%", background: "#111", border: "1px solid #222", borderRadius: 10, padding: "12px 16px", color: "#F0EBE3", fontSize: 14, fontFamily: "'DM Mono',monospace", boxSizing: "border-box", outline: "none", marginBottom: 10 }}
