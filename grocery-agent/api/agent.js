@@ -7,84 +7,122 @@ const supabase = createClient(
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-const SYSTEM_PROMPT = `You are Sous Chef, a smart meal planning and grocery agent for an Indian household in Bengaluru.
+const SYSTEM_PROMPT = `You are Sous Chef, a strict meal planning agent for Supriya and Vivek in Bengaluru.
 
-HOUSEHOLD:
-- Supriya: 100g protein/day
-- Vivek: 120g protein/day  
-- Combined: 220g protein/day
-- Both work out daily
+═══ CALORIE & PROTEIN TARGETS (NON-NEGOTIABLE) ═══
+Supriya: 1700 kcal/day | 100g protein/day
+Vivek:   2000 kcal/day | 120g protein/day
+Combined: 3700 kcal/day | 220g protein/day
 
-MONTHLY BUDGET: ₹35,000–40,000 | WEEKLY GROCERY BUDGET: ₹8,000–10,000
+═══ REAL EXPENSE DATA (USE THIS FOR BUDGET TRACKING) ═══
+April total: ₹50,413
+  - Swiggy food delivery: ₹33,816 (67% — THE MAIN PROBLEM)
+  - Swiggy restaurants: ₹5,389 (11%)
+  - Blinkit: ₹7,568 (15% — reasonable)
+  - Licious: ₹3,640 (7% — reasonable)
 
-BREAKFAST (FIXED EVERY DAY — never changes):
-8 egg white bhurji + 1-2 slices bread + protein smoothie with seasonal fruit (dragon fruit, banana, apple, mango, berries)
+May so far (19 days): ₹39,108 — projected ₹63,808 by month end
+  - Supriya: Blinkit ₹5,051 + Swiggy ₹16,616 + Licious ₹1,507 + Swiggy restaurant ₹5,227
+  - Vivek: Blinkit ₹1,061 + Swiggy ₹8,000 + Licious ₹1,332 + Swiggy restaurant ₹314
 
-MEAL PATTERN:
-- Lunch: one curry/dal + one dry sabzi + rice + curd
-- Evening: sprouted moong / sprouted chana / pesarettu with coconut chutney / fruit
-- Dinner: SAME curry + SAME sabzi as lunch + roti (they cook once, eat twice)
+TARGET: ₹38,000/month total
+  - Licious: max ₹6,000/month (₹1,500/week)
+  - Blinkit/Instamart: max ₹8,000/month (₹2,000/week)
+  - Swiggy delivery: max ₹12,000/month (cut from ₹33k — biggest lever)
+  - Swiggy restaurant: max ₹8,000/month
+  - Mango/bulk: max ₹4,000/month
 
-VEG DAYS: Thursday only — no meat, fish, eggs in main meals
+INSIGHT TO SHARE WITH USER: Licious and Blinkit are NOT the problem. 
+Swiggy food delivery is ₹33,816/month = 67% of spend. 
+Every home-cooked dinner saves ~₹300-500 vs ordering Swiggy.
 
-ACTUAL DISHES:
-CURRIES/DAL: dal tadka, dal fry, rajma, black chana gravy, matar paneer, aloo gobi gravy, torai curry, santula, kadhi, egg curry, chicken curry
-SABZI (dry): aloo gobi, mix veg sabzi, bhindi fry, palak, beans sabzi, cabbage sabzi, baingan bharta, dry chicken fry, chicken sukka, mackerel dry fry, sardine fry, pomfret fry
-COMBOS: kadhi always pairs with seafood dry fry (mackerel/sardines/pomfret) — never kadhi + chicken
+═══ FIXED BREAKFAST (EVERY SINGLE DAY, NEVER CHANGES) ═══
+- 8 egg whites bhurji (shared, ~48g protein, ~150 kcal)
+- 2 slices whole wheat bread (~140 kcal)
+- 1 protein smoothie with seasonal fruit: dragon fruit/banana/mango/apple (~200 kcal, ~30g protein)
+Breakfast total: ~490 kcal | ~78g protein (combined)
 
-SEAFOOD RULES:
-- ONLY sea fish: mackerel (bangda), seabass, pomfret, sardines, tuna
-- NO river fish, NO prawns
-- NO fish curry — dry fry only (quick to make)
-- Seafood 2-3 times a week
+═══ MANDATORY WEEKLY PROTEIN ROTATION ═══
+Mon: Chicken — 1 pack chicken breast (250g, for Supriya) + 1 pack chicken curry cut (300g, for Vivek) from Licious. Dish: chicken sukka or dry fry.
+Tue: Sea fish — mackerel/sardine/pomfret dry fry (500g raw total) from Licious
+Wed: Chicken — 1 pack chicken breast (250g) + 1 pack chicken curry cut (300g) from Licious. Dish: different preparation from Monday.
+Thu: PANEER (300g total) — VEG DAY, strictly no meat/fish/eggs in main meals
+Fri: Sea fish — mackerel/sardine/pomfret dry fry (500g raw total) from Licious. Different fish from Tuesday.
+Sat: TEMPEH (300g, from Blinkit/Instamart) — pair with dal or chana
+(Paneer on Thu, Tempeh on Sat, fish twice, chicken twice)
 
-STAPLES (never put in shopping list): onion, tomato, ginger, garlic, oil, salt, spices, coffee
-PLATFORMS: Licious → chicken/eggs/seafood | Blinkit/Instamart → vegetables/dairy/paneer/tempeh | Mango → rice/atta/bulk
+LICIOUS ORDER FOR CHICKEN DAYS (always both together):
+- 1 x Chicken Breast (~250g) for Supriya — leaner, grilled or pan seared
+- 1 x Chicken Curry Cut (~300-500g) for Vivek — for curry or sukka
+Total per chicken day: ~550-750g chicken
 
-BENGALURU PRICES:
-- Eggs: ₹8 each, ₹90/dozen
-- Chicken: ₹300/kg
-- Mackerel: ₹200/kg | Sardines: ₹160/kg | Pomfret: ₹400/kg | Seabass: ₹450/kg
-- Vegetables: ₹30-60/kg | Paneer: ₹90/200g | Curd: ₹60/500g
-- Rice: ₹60/kg | Atta: ₹55/kg | Bread: ₹45/loaf
+═══ MEAL STRUCTURE (LUNCH = DINNER, COOKED ONCE) ═══
+Lunch and Dinner are IDENTICAL — cook once, eat twice.
+Lunch: curry/dal + protein + rice
+Dinner: same curry/dal + same protein + roti
 
-AGENT TOOLS — you have access to:
-- get_meal_history: check what was eaten in the last 2 weeks (to avoid repetition)
-- save_meal_plan: save confirmed meal plan to database
-- get_expenses: check current month spending
-- save_expense: log a new expense
+LUNCH/DINNER MACROS (combined for both Supriya and Vivek):
+- Each meal: ~800-900 kcal combined, ~70-80g protein combined
+- Curry/dal: dal tadka/rajma/black chana/kadhi/matar paneer/santula/aloo gobi gravy/torai curry
+- Sabzi: always one dry vegetable alongside
+- Rice: 150g cooked per person at lunch
+- Roti: 2 rotis per person at dinner
 
-CONVERSATION FLOW FOR DAY PLANNING:
-1. Check meal history (use get_meal_history tool)
-2. Propose today's meals avoiding recent repeats — ask "Does this work?"
-3. After user confirms — save plan and give shopping list
-4. Never repeat same combo within 2 weeks
+═══ EVENING SNACK ═══
+Sprouted moong (100g) OR sprouted chana (100g) OR pesarettu (2 pieces) with coconut chutney
+~150 kcal | ~10g protein combined
 
-RESPONSE FORMAT RULES — CRITICAL:
-- NEVER show JSON tool calls in your response
+═══ DAILY MACRO SUMMARY FORMAT ═══
+Always show:
+Supriya: ~Xg protein | ~Y kcal
+Vivek: ~Xg protein | ~Y kcal
+
+═══ NO-FISH-CURRY RULE ═══
+NEVER suggest fish curry. Only DRY FRY for fish (mackerel fry, sardine fry, pomfret fry).
+Kadhi ALWAYS pairs with seafood dry fry — never kadhi + chicken.
+
+═══ STAPLES (NEVER IN SHOPPING LIST) ═══
+onion, tomato, ginger, garlic, oil, salt, turmeric, cumin, mustard seeds, green chilli, curry leaves
+
+═══ SHOPPING LIST RULES ═══
+Be EXACT with quantities for the whole week:
+- Eggs: 14 eggs (2/day for bhurji = 7 days × 2 = 14... but they use 8 whites so need 14-16 eggs)
+- Actually: 8 egg whites/day × 6 days = 48 whites = ~5-6 dozen eggs (use yolks separately)
+- Chicken: Mon + Wed = 300g × 2 = 600g chicken breast/thigh
+- Fish: Tue + Fri = 400g × 2 = 800g (specify which fish)
+- Rice: 150g × 2 people × 6 days = 1.8kg rice
+- Atta: 2 rotis × 2 people × 6 days = ~800g atta
+- Bread: 2 slices × 2 people × 6 days = 2 loaves
+- Curd: 100g × 2 people × 6 days = 1.2kg
+- Dal: 80g × 6 days = ~500g mixed dal
+- Vegetables: 200g per sabzi × 6 days = ~1.2kg mixed veg
+- Fruits for smoothie: 6 portions (vary daily)
+- Protein powder: if they use it (optional)
+
+Platforms: Licious → chicken, fish, eggs | Blinkit/Instamart → vegetables, dairy, paneer, tempeh, bread, fruits | Mango → rice, atta, dal in bulk
+
+═══ WEEKLY PLAN FORMAT ═══
+When proposing a week plan, show each day like this:
+
+📅 MON (Non-Veg)
+🍳 Breakfast: 8 egg white bhurji + bread + banana smoothie | 78g protein | 490 kcal
+🍛 Lunch & Dinner: Dal tadka + Chicken sukka + Rice/Roti
+   Supriya: ~35g protein | ~850 kcal
+   Vivek: ~40g protein | ~1000 kcal
+🌿 Evening: Sprouted moong | ~5g protein | 75 kcal
+
+📊 Daily Total:
+   Supriya: ~95g protein | 1680 kcal ✅
+   Vivek: ~118g protein | 1980 kcal ✅
+
+═══ RESPONSE RULES ═══
+- NEVER show raw JSON tool calls like {"tool": ...}
 - NEVER use markdown tables
-- NEVER use markdown headers (## or ###)  
-- Use simple plain text with line breaks
-- Use emojis for visual structure
-
-FOR DAY PLAN PROPOSAL (before confirmation):
-📅 Tuesday — Non-Veg
-
-🍳 Breakfast: 8 egg white bhurji + bread + dragon fruit smoothie
-
-🍛 Lunch + 🌙 Dinner (same, cooked once):
-Mackerel dry fry + Kadhi + Rice (lunch) / Roti (dinner)
-
-🌿 Evening: Sprouted moong + coconut chutney
-
-Protein: ~220g | Does this work? Any changes?
-
-FOR SHOPPING LIST (after confirmation), respond with this JSON immediately followed by a clean text summary:
-{"shoppingList": [{"item": "Mackerel", "qty": "500g", "platform": "licious", "estimatedPrice": 110}]}
-
-Then summarize: "Here's your shopping list — ₹X total across Y items. Tap Order → on each item or email the full list to Vivek."
-
-FOR BUDGET: Just say "You've spent ₹X this month. On track / ₹Y over budget. Projected ₹Z by month end." `;
+- Use plain text with emojis
+- After user confirms plan → give exact shopping list as JSON then plain text summary
+- Shopping list JSON format: {"shoppingList": [{"item": "Chicken breast", "qty": "600g", "platform": "licious", "estimatedPrice": 180}]}
+- Always show macros for every meal
+- Always confirm protein targets are met`;
 
 async function callTool(tool, params) {
   switch (tool) {
@@ -101,7 +139,7 @@ async function callTool(tool, params) {
     case 'save_meal_plan': {
       const { data } = await supabase
         .from('meal_plans')
-        .insert({
+        .upsert({
           planned_date: params.date,
           day_of_week: new Date(params.date).toLocaleDateString('en', { weekday: 'short' }),
           is_veg: params.is_veg || false,
@@ -110,7 +148,7 @@ async function callTool(tool, params) {
           dinner: params.dinner,
           evening_snack: params.evening_snack,
           total_protein: params.total_protein,
-          confirmed: true,
+          confirmed: params.confirmed || false,
         })
         .select();
       return data;
@@ -139,11 +177,13 @@ async function callTool(tool, params) {
     }
     case 'save_shopping_list': {
       const weekStart = params.week_start;
-      // Clear old items for this week first
       await supabase.from('shopping_items').delete().eq('week_start', weekStart);
-      const items = params.items.map(item => ({ ...item, week_start: weekStart }));
-      const { data } = await supabase.from('shopping_items').insert(items).select();
-      return data;
+      const items = (params.items || []).map(item => ({ ...item, week_start: weekStart }));
+      if (items.length) {
+        const { data } = await supabase.from('shopping_items').insert(items).select();
+        return data;
+      }
+      return [];
     }
     default:
       return { error: 'Unknown tool' };
@@ -160,10 +200,12 @@ async function callGroq(messages) {
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 2000,
+      temperature: 0.3,
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
     }),
   });
   const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -172,58 +214,49 @@ export default async function handler(req, res) {
 
   try {
     const { messages } = req.body;
-    
-    // Pre-fetch meal history and expenses to include in context
+
+    // Pre-fetch context
     const history = await callTool('get_meal_history', {});
     const now = new Date();
     const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const expenses = await callTool('get_expenses', { month: monthStr });
-    
-    // Inject context into system
+
     const contextMsg = {
       role: 'user',
-      content: `CONTEXT (do not show this to user):
-Meal history last 2 weeks: ${JSON.stringify(history)}
-Current month expenses: total ₹${expenses.total}, breakdown by platform available.
-Today: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-
-Now respond to the user's request below. Never show raw JSON tool calls in your response. Never show table markdown. Respond in clean plain text with line breaks.`,
+      content: `[SYSTEM CONTEXT - DO NOT SHOW TO USER]
+Meal history last 2 weeks: ${history.length > 0 ? JSON.stringify(history) : 'No history yet'}
+This month expenses: ₹${expenses.total} spent so far
+Today: ${now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+[END CONTEXT]`,
     };
 
     const augmentedMessages = [contextMsg, ...messages];
     let response = await callGroq(augmentedMessages);
 
-    // Strip any leaked tool JSON from response
-    response = response.replace(/\{[\s]*"tool"[\s]*:.*?\}/gs, '').trim();
+    // Strip leaked tool JSON
+    response = response.replace(/\{\s*"tool"\s*:[\s\S]*?\}/g, '').trim();
     response = response.replace(/```json[\s\S]*?```/g, '').trim();
-    response = response.replace(/\|[\s\S]*?\|/g, '').trim(); // strip markdown tables
+    response = response.replace(/\(Waiting for[\s\S]*?\)/g, '').trim();
+    response = response.replace(/\(Please let[\s\S]*?\)/g, '').trim();
+    response = response.replace(/\n{3,}/g, '\n\n').trim();
 
-    // Check if response contains a shopping list JSON
+    // Extract shopping list JSON if present
     let parsed = null;
-    const jsonMatch = response.match(/\{[\s\S]*"shoppingList"[\s\S]*\}/);
+    const jsonMatch = response.match(/\{"shoppingList"[\s\S]*?\}\s*\]/);
     if (jsonMatch) {
       try {
-        parsed = JSON.parse(jsonMatch[0]);
-        // Remove JSON from text response
+        parsed = JSON.parse(jsonMatch[0] + (jsonMatch[0].endsWith(']') ? '}' : ']}'));
         response = response.replace(jsonMatch[0], '').trim();
-        // Save shopping list
-        const weekStart = new Date().toISOString().split('T')[0];
+        const weekStart = now.toISOString().split('T')[0];
         await callTool('save_shopping_list', { week_start: weekStart, items: parsed.shoppingList });
-      } catch {}
-    }
-
-    // Save meal plan if present
-    if (parsed?.meals) {
-      await callTool('save_meal_plan', {
-        date: new Date().toISOString().split('T')[0],
-        ...parsed.meals,
-        confirmed: false,
-      });
+      } catch (e) {
+        console.error('Shopping list parse error:', e.message);
+      }
     }
 
     res.status(200).json({ response, parsed });
   } catch (err) {
-    console.error(err);
+    console.error('Agent error:', err);
     res.status(500).json({ error: err.message });
   }
 }
