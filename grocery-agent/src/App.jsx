@@ -42,7 +42,7 @@ const SUGGESTIONS = [
 ];
 
 export default function App() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("ga_apikey") || "");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("ga_apikey2") || "");
   const [keyInput, setKeyInput] = useState("");
   const [messages, setMessages] = useState([{
     role: "assistant", type: "text",
@@ -61,7 +61,7 @@ export default function App() {
   function saveKey() {
     const k = keyInput.trim();
     if (!k) return alert("Please enter an API key");
-    localStorage.setItem("ga_apikey", k);
+    localStorage.setItem("ga_apikey2", k);
     setApiKey(k);
     setKeyInput("");
   }
@@ -113,7 +113,7 @@ export default function App() {
         // Must start with user message
         if (geminiMessages[0]?.role === "model") geminiMessages.shift();
         
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -220,10 +220,10 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#080808", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'DM Sans',sans-serif" }}>
       <div style={{ maxWidth: 380, width: "100%" }}>
         <h1 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 700, color: "#F0EBE3" }}>🛒 Grocery Agent</h1>
-        <p style={{ margin: "0 0 28px", fontSize: 13, color: "#555", lineHeight: 1.6 }}>Add your Anthropic API key to get started. It's saved only in your browser.</p>
-        <label style={{ fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'DM Mono',monospace", display: "block", marginBottom: 8 }}>Anthropic API Key</label>
+        <p style={{ margin: "0 0 28px", fontSize: 13, color: "#555", lineHeight: 1.6 }}>Add your Gemini or Anthropic API key. It's saved only in your browser.</p>
+        <label style={{ fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'DM Mono',monospace", display: "block", marginBottom: 8 }}>API Key</label>
         <input
-          type="password" placeholder="sk-ant-api03-..."
+          type="password" placeholder="AIza... (Gemini) or sk-ant... (Anthropic)"
           value={keyInput} onChange={e => setKeyInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && saveKey()}
           style={{ width: "100%", background: "#111", border: "1px solid #222", borderRadius: 10, padding: "12px 16px", color: "#F0EBE3", fontSize: 14, fontFamily: "'DM Mono',monospace", boxSizing: "border-box", outline: "none", marginBottom: 10 }}
