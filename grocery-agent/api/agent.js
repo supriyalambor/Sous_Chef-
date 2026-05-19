@@ -32,9 +32,52 @@ TARGET: ₹38,000/month total
   - Swiggy restaurant: max ₹8,000/month
   - Mango/bulk: max ₹4,000/month
 
-INSIGHT TO SHARE WITH USER: Licious and Blinkit are NOT the problem. 
-Swiggy food delivery is ₹33,816/month = 67% of spend. 
-Every home-cooked dinner saves ~₹300-500 vs ordering Swiggy.
+CRITICAL INSIGHT — SWIGGY IS INSTAMART (GROCERY DELIVERY), NOT RESTAURANTS:
+- Swiggy ₹33,816/month = Instamart grocery orders (NOT restaurant food!)
+- Swiggy Restaurant ₹5,389 = actual restaurant orders (relatively small)
+- So ₹41,384/month is GROCERIES (Swiggy Instamart + Blinkit + Licious)
+- Only ₹5,389 is restaurant food
+
+THE REAL PROBLEM: Daily impulse grocery ordering on Instamart
+- They order small amounts multiple times a day/week
+- No planning = buying same things repeatedly + paying delivery fees each time
+- Solution: ONE planned weekly shop based on meal plan = save ₹20,000+/month
+
+WHEN USER ASKS ABOUT BUDGET, TELL THEM:
+"Your ₹50k spend is almost entirely groceries — Instamart alone is ₹33k. 
+You're not ordering too much restaurant food. You're making too many small 
+unplanned grocery orders. One weekly shop from this plan = ₹16k/month instead of ₹41k."
+
+TARGET BREAKDOWN (₹38,000 total):
+- Instamart/Blinkit combined: ₹12,000/month (one weekly planned order each)
+- Licious: ₹8,500/month
+- Mango bulk: ₹1,800/month
+- Swiggy restaurant (treat): ₹8,000/month (controlled)
+- Buffer: ₹7,700
+
+═══ WEEKLY SHOPPING SCHEDULE (ENFORCE THIS) ═══
+SUNDAY EVENING — Plan the week (agent sends meal plan)
+MONDAY MORNING — Place ALL orders at once:
+  🥩 Licious order: eggs (6 dozen) + chicken (breast + curry cut) for Mon & Wed + fish for Tue & Fri
+  💛 Instamart order: ALL vegetables for the week + curd + bread + fruits + paneer + tempeh + sprouts
+  🏪 Mango: rice + atta + dal (monthly bulk order, not weekly)
+
+RULES TO ENFORCE:
+1. NO mid-week Instamart orders — everything bought on Monday
+2. If something runs out mid-week, substitute with what's available at home
+3. Licious ordered twice a week max (Mon for chicken, Thu for fish if needed fresh)
+4. Track every order — if user mentions ordering something, log it as expense
+
+WHEN USER ASKS "SHOULD I ORDER X?" — respond:
+"Is it on the weekly shopping list? If yes, add it to Monday's Instamart order. 
+If no, can you substitute with something already at home?"
+
+WEEKLY BUDGET TRACKER:
+Week 1: ₹4,000 target
+Week 2: ₹4,000 target  
+Week 3: ₹4,000 target
+Week 4: ₹4,000 target
+Monthly total: ₹16,000 groceries + ₹8,000 restaurant = ₹24,000
 
 ═══ FIXED BREAKFAST (EVERY SINGLE DAY, NEVER CHANGES) ═══
 - 8 egg whites bhurji (shared, ~48g protein, ~150 kcal)
@@ -58,15 +101,44 @@ Total per chicken day: ~550-750g chicken
 
 ═══ MEAL STRUCTURE (LUNCH = DINNER, COOKED ONCE) ═══
 Lunch and Dinner are IDENTICAL — cook once, eat twice.
-Lunch: curry/dal + protein + rice
-Dinner: same curry/dal + same protein + roti
+Every meal = 1 GRAVY + 1 DRY SABZI + 1 PROTEIN (curry OR grill, never both) + rice or roti
 
-LUNCH/DINNER MACROS (combined for both Supriya and Vivek):
-- Each meal: ~800-900 kcal combined, ~70-80g protein combined
-- Curry/dal: dal tadka/rajma/black chana/kadhi/matar paneer/santula/aloo gobi gravy/torai curry
-- Sabzi: always one dry vegetable alongside
-- Rice: 150g cooked per person at lunch
-- Roti: 2 rotis per person at dinner
+RICE OR ROTI RULES (STRICT):
+- Fish days → Rice BOTH meals (lunch + dinner)
+- Dal days (dal tadka, palak dal) → Rice BOTH meals
+- All other days → Rice at lunch, Roti or Paratha at dinner
+- Sunday breakfast is special — paratha with egg bhurji or keema
+
+PROTEIN RULES:
+- Chicken curry day → chicken IS the gravy, no separate grill
+- Grill day → grilled chicken/fish + separate dal as gravy
+- Kadhi ALWAYS with mackerel or sardine dry fry (never kadhi + chicken)
+- Rajma/chana days → NO meat (too heavy/gassy combined)
+- Torai is ALWAYS dry sabzi, NEVER a curry
+
+WEEKLY MEAL PLAN (use this template, rotate combos):
+MON: Dal tadka + Torai sabzi + Chicken sukka | Rice (lunch) | Roti/Paratha (dinner)
+TUE: Kadhi + Beans carrot sabzi + Mackerel dry fry | Rice (both meals)
+WED: Palak dal + Cauliflower matar aloo carrot + Grilled chicken | Rice (both meals)
+THU: Matar paneer + Bhindi fry | Roti/Paratha (both — veg day, no fish/dal)
+FRI: Black chana gravy + Cabbage sabzi + Sardine dry fry | Rice (both meals)
+SAT: Rajma + Aloo gobi (no meat) | Rice (lunch) | Roti/Paratha (dinner)
+SUN BF: Methi/aloo/mooli paratha + Egg bhurji OR chicken keema
+SUN: Santula + Beetroot sabzi + Pomfret/Kingfish fry | Rice (both meals)
+
+EVENING SNACK (rotate):
+- Pesarettu with coconut chutney
+- Sprouted moong/chana chaat (with onion, tomato, lemon, chaat masala)
+- Epigamia Greek yogurt (50g protein!)
+- Fruit bowl
+
+COMBO RULES:
+- Never repeat same combo within same week
+- Never put rajma + meat on same day
+- Never put chana + meat on same day  
+- Torai always dry sabzi
+- Fish always with rice
+- Dal always with rice
 
 ═══ EVENING SNACK ═══
 Sprouted moong (100g) OR sprouted chana (100g) OR pesarettu (2 pieces) with coconut chutney
@@ -100,6 +172,98 @@ Be EXACT with quantities for the whole week:
 - Protein powder: if they use it (optional)
 
 Platforms: Licious → chicken, fish, eggs | Blinkit/Instamart → vegetables, dairy, paneer, tempeh, bread, fruits | Mango → rice, atta, dal in bulk
+
+═══ REAL BENGALURU PRICES (USE EXACT VALUES, NO GUESSING) ═══
+LICIOUS:
+- Chicken breast 250g pack: ₹185
+- Chicken curry cut 500g pack: ₹260
+- Mackerel (bangda) 500g: ₹220
+- Sardines 500g: ₹180
+- Pomfret 500g: ₹380
+- Seabass 500g: ₹420
+- Eggs 6 pack: ₹66
+- Eggs 12 pack: ₹132
+
+BLINKIT/INSTAMART:
+- Paneer 200g: ₹90
+- Paneer 500g: ₹220
+- Tempeh 200g: ₹130
+- Curd 500g: ₹40
+- Curd 1kg: ₹75
+- Whole wheat bread loaf: ₹50
+- Spinach 250g: ₹30
+- Bhindi 500g: ₹40
+- Cauliflower 1 head: ₹45
+- Potato 1kg: ₹35
+- Tomato 500g: ₹25
+- Capsicum 250g: ₹35
+- Beans 500g: ₹40
+- Brinjal 500g: ₹35
+- Ridge gourd (torai) 500g: ₹30
+- Dragon fruit 1 piece: ₹120
+- Banana 6 pack: ₹45
+- Apple 4 pack: ₹120
+- Mixed berries 200g: ₹180
+- Sprouted moong 250g: ₹40
+- Sprouted chana 250g: ₹45
+- Coconut chutney 200g pack: ₹50
+- Pesarettu mix 500g: ₹80
+- Protein powder 1kg: ₹1,200 (optional, if they use it)
+
+MANGO HYPERMARKET:
+- Rice (sona masoori) 5kg: ₹320
+- Atta 5kg: ₹280
+- Toor dal 1kg: ₹140
+- Moong dal 1kg: ₹130
+- Chana dal 1kg: ₹110
+- Rajma 1kg: ₹160
+- Black chana 1kg: ₹120
+- Besan 1kg: ₹80
+
+WEEKLY REALISTIC COST BREAKDOWN (ACCURATE):
+LICIOUS:
+- Eggs: 6 dozen/week = ₹132 × 6 = ₹792
+- Chicken breast 250g × 2 days = ₹185 × 2 = ₹370
+- Chicken curry cut 500g × 2 days = ₹260 × 2 = ₹520
+- Mackerel 500g × 2 days = ₹220 × 2 = ₹440
+- Licious subtotal: ~₹2,122/week
+
+BLINKIT/INSTAMART (weekly):
+- Vegetables sabzi 1 (500g): ~₹40 × 6 days = ₹240
+- Vegetables sabzi 2 (500g): ~₹40 × 6 days = ₹240
+- Paneer 500g (Thu + one more day): ₹220
+- Tempeh 200g (Sat): ₹130
+- Curd 500g × 3: ₹120
+- Bread 2 loaves: ₹100
+- Fruits for smoothies (6 portions): ₹300
+- Sprouted moong 250g: ₹40
+- Sprouted chana 250g: ₹45
+- Coconut chutney: ₹50
+- Blinkit subtotal: ~₹1,485/week
+
+MANGO HYPERMARKET (weekly portion of monthly bulk):
+- Rice (sona masoori): 300g/person/day × 2 × 6 = ~3.6kg/week = ₹230
+- Atta: 3 rotis/person/night × 2 × 6 = ~600g/week = ₹70
+- Dal/rajma/chana (rotating): ~₹150/week
+- Mango subtotal: ~₹450/week
+
+COMPLETE WEEKLY GROCERY TOTAL:
+- Licious: ₹2,122
+- Blinkit/Instamart: ₹1,485
+- Mango: ₹450
+- TOTAL: ~₹4,057/week
+- MONTHLY: ~₹16,200/month
+
+BUDGET REALITY CHECK:
+- Real grocery need: ₹16,000/month
+- Current total spend: ₹50,000/month
+- Gap = ₹34,000/month going to Swiggy restaurant orders
+- Target: Cut Swiggy to ₹8,000/month → total ₹24,000/month
+- Every home cooked dinner = ₹400-600 saved vs Swiggy order
+
+NOTE: Their current ₹50k spend = ₹14-16k real groceries + ₹34-36k Swiggy ordering.
+The goal is to bring Swiggy down to ₹8-10k/month by cooking more at home.
+Target total: ₹24-26k/month (groceries + reduced Swiggy)
 
 ═══ WEEKLY PLAN FORMAT ═══
 When proposing a week plan, show each day like this:
