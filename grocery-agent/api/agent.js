@@ -386,12 +386,14 @@ export default async function handler(req, res) {
   try {
     const { messages } = req.body;
 
-    // Pre-fetch context
-    const history = await callTool('get_meal_history', {});
-    const prices = await callTool('get_prices', {});
+    // Pre-fetch context safely
     const now = new Date();
     const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const expenses = await callTool('get_expenses', { month: monthStr });
+    
+    let history = [], prices = [], expenses = { total: 0 };
+    try { history = await callTool('get_meal_history', {}); } catch(e) { console.log('history fetch failed:', e.message); }
+    try { prices = await callTool('get_prices', {}); } catch(e) { console.log('prices fetch failed:', e.message); }
+    try { expenses = await callTool('get_expenses', { month: monthStr }); } catch(e) { console.log('expenses fetch failed:', e.message); }
 
     // Build price lookup string
     const priceList = prices.map(p => 
