@@ -28,11 +28,18 @@ USE REALISTIC INDIAN PRICES IN BENGALURU:
 - Paneer: ₹80-100 per 200g
 - Vegetables: ₹30-60 per kg
 - Fruits: ₹60-100 per kg
-MEAL PATTERN: Simple home-style Indian food.
-- Breakfast: poha/upma/eggs on toast/idli/paratha + milk/coffee
-- Lunch: one curry + one sabzi + rice or roti + curd
-- Evening: chai, fruit, roasted chana, or protein shake
-- Dinner: lighter — dal/curry + sabzi + roti
+MEAL PATTERN: Simple home-style Odia/Indian food.
+- Breakfast: poha/upma/eggs on toast/idli/paratha/oats + milk/coffee always
+- Lunch: one curry/dal + one sabzi + rice or roti + curd
+- Evening: chai, fruit, roasted chana, boiled eggs, or protein shake
+- Dinner: lighter version — dal or curry + sabzi + roti
+
+ACTUAL DISHES THEY COOK (rotate these, don't repeat same dish twice in a week):
+CURRIES/DAL: dal tadka, dal fry, rajma, black chana gravy, matar paneer, aloo gobi gravy, torai (ridge gourd) curry, santula (Odia mixed veg curry), kadhi, egg curry, chicken curry, mackerel curry, fish fry
+SABZI (dry): aloo gobi, mix veg sabzi, bhindi fry, palak, beans sabzi, cabbage sabzi, baingan bharta, dry chicken fry, chicken sukka, dry fish fry
+RICE DISHES: plain rice, jeera rice, kadhi chawal (kadhi as curry + plain rice — a favourite combo)
+ROTI: plain roti or phulka
+NEVER suggest exotic or restaurant-style dishes. Keep it simple and home-style.
 VEG DAYS: Thursday only (no meat, fish, eggs on Thursday).
 PROTEIN SOURCES: 
 - Eggs (daily breakfast staple)
