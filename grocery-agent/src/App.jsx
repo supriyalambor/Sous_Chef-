@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
+import Onboarding from "./Onboarding.jsx";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -31,9 +32,23 @@ const SUGGESTIONS = [
 ];
 
 export default function App() {
+  const [profiles, setProfiles] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sc_profiles") || "null"); } catch { return null; }
+  });
+
+  function handleOnboardingComplete(data) {
+    localStorage.setItem("sc_profiles", JSON.stringify(data));
+    setProfiles(data);
+  }
+
+  if (!profiles) return <Onboarding onComplete={handleOnboardingComplete} />;
+
+  const combinedCalories = profiles.reduce((a, b) => a + (b.calories || 0), 0);
+  const combinedProtein = profiles.reduce((a, b) => a + (b.protein || 0), 0);
+
   const [messages, setMessages] = useState([{
     role: "assistant", type: "text",
-    content: `Hey Supriya! 👋 I'm your Sous Chef agent.\n\nI remember what you've eaten, track your grocery spend, and plan meals so you never repeat the same combo twice.\n\n${isVegDay ? "🥦 Today is veg day!" : "🥩 Non-veg day today."} What do you need?`,
+    content: `Hey! 👋 I'm your Sous Chef agent.\n\nI know your macros, your dishes, and your budget. ${isVegDay ? "🥦 Today is veg day!" : "🥩 Non-veg day today."}\n\nCombined targets: ${combinedProtein}g protein | ${combinedCalories} kcal\n\nWhat do you need?`,
   }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -82,7 +97,7 @@ export default function App() {
         if (!items.length) return "";
         return `${p.emoji} ${p.label}:\n${items.map(i => `  - ${i.item} (${i.qty}) — ${fmt(i.estimated_price)}`).join("\n")}`;
       }).filter(Boolean).join("\n\n");
-      const total = shoppingList.reduce((a, b) => a + (b.estimated_price || 0), 0);
+      const total = shoppingList.reduce((a, b) => a + Number(b.estimatedPrice || b.estimated_price || 0), 0);
       window.open(`mailto:?subject=${encodeURIComponent("🛒 Sous Chef — Weekly Grocery List")}&body=${encodeURIComponent(`Hi!\n\nThis week's grocery list:\n\n${body}\n\nEstimated total: ${fmt(total)}\n\n— Sous Chef 🍳`)}`);
       setMessages(prev => [...prev, { role: "user", type: "text", content: text }, {
         role: "assistant", type: "text",
@@ -183,28 +198,33 @@ export default function App() {
               <div style={{ padding: "10px 14px", borderBottom: "1px solid #1A1A1A", display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", fontFamily: "monospace" }}>Shopping List</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#F9C23C", fontFamily: "monospace" }}>
-                  {fmt(msg.shoppingList.reduce((a, b) => a + (b.estimatedPrice || b.estimated_price || 0), 0))}
+                  {fmt(msg.shoppingList.reduce((a, b) => a + Number(b.estimatedPrice || b.estimated_price || 0), 0))}
                 </span>
               </div>
               {Object.entries(PLATFORMS).map(([pid, pconf]) => {
-                const items = msg.shoppingList.filter(it => it.platform === pid);
+                const items = msg.shoppingList.filter(it => (it.platform || "").toLowerCase() === pid);
                 if (!items.length) return null;
                 return (
                   <div key={pid} style={{ padding: "10px 14px", borderBottom: "1px solid #111" }}>
                     <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: pconf.color }}>{pconf.emoji} {pconf.label}</p>
-                    {items.map((item, j) => (
-                      <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <input type="checkbox" checked={!!checkedItems[item.item]} onChange={() => setCheckedItems(c => ({ ...c, [item.item]: !c[item.item] }))} style={{ accentColor: pconf.color }} />
-                          <span style={{ fontSize: 12, textDecoration: checkedItems[item.item] ? "line-through" : "none", color: checkedItems[item.item] ? "#444" : "#F0EBE3" }}>{item.item}</span>
-                          <span style={{ fontSize: 11, color: "#444" }}>{item.qty}</span>
+                    {items.map((item, j) => {
+                      const price = Number(item.estimatedPrice || item.estimated_price || 0);
+                      return (
+                        <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #0A0A0A" }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1 }}>
+                            <input type="checkbox" checked={!!checkedItems[item.item]} onChange={() => setCheckedItems(c => ({ ...c, [item.item]: !c[item.item] }))} style={{ accentColor: pconf.color, flexShrink: 0 }} />
+                            <div>
+                              <p style={{ margin: 0, fontSize: 13, fontWeight: 500, textDecoration: checkedItems[item.item] ? "line-through" : "none", color: checkedItems[item.item] ? "#444" : "#F0EBE3" }}>{item.item}</p>
+                              <p style={{ margin: 0, fontSize: 11, color: "#555" }}>{item.qty}</p>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: pconf.color, fontFamily: "monospace" }}>{price > 0 ? fmt(price) : "—"}</span>
+                            <a href={pconf.search(item.item)} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: pconf.color, textDecoration: "none", padding: "3px 8px", background: pconf.color + "22", borderRadius: 4, fontWeight: 600 }}>Order →</a>
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 11, color: pconf.color, fontFamily: "monospace" }}>{fmt(item.estimatedPrice || item.estimated_price)}</span>
-                          <a href={pconf.search(item.item)} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: pconf.color, textDecoration: "none", padding: "2px 6px", background: pconf.color + "22", borderRadius: 4 }}>Order →</a>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
