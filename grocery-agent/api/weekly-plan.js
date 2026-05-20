@@ -28,7 +28,8 @@ export default async function handler(req, res) {
     const prompt = `Generate a Mon-Sat meal plan for next week. 
 Recent meals to AVOID repeating: ${recentMeals || 'none yet'}
 Thursday must be veg day.
-For each day give: breakfast (always 8 egg white bhurji + bread + protein smoothie), lunch (curry+sabzi+rice), evening snack, dinner (same as lunch but with roti).
+EVERY meal = 1 gravy + 1 dry sabzi + protein. Fish/dal days = rice both meals. Other days = rice lunch, roti dinner.
+For each day give: breakfast (8 egg white bhurji + bread + smoothie), lunch (gravy+dry sabzi+protein+rice), evening snack, dinner (same as lunch + roti or rice for fish days).
 Also give full weekly shopping list with quantities and platforms.
 Respond in JSON: {"days": [{"date": "2026-05-25", "day": "Mon", "veg": false, "breakfast": "", "lunch": "", "evening": "", "dinner": "", "protein": 220}], "shoppingList": [{"item": "", "qty": "", "platform": "", "estimatedPrice": 0}], "estimatedWeeklyCost": 0}`;
 
@@ -36,7 +37,7 @@ Respond in JSON: {"days": [{"date": "2026-05-25", "day": "Mon", "veg": false, "b
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant',
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }],
       }),

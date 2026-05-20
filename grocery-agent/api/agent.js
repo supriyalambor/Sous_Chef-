@@ -25,9 +25,19 @@ Tue/Fri/Sun: Fish dry fry (mackerel 500g or sardines — NO fish curry, dry fry 
 Thu: Paneer 400g — STRICT VEG DAY
 
 MEAL STRUCTURE per day (lunch = dinner, cooked once):
-= 1 gravy + 1 dry sabzi + protein + rice OR roti
-Fish/dal days → rice both meals
-Other days → rice lunch, roti/paratha dinner
+EVERY meal MUST have ALL 4 components — NO EXCEPTIONS:
+1. GRAVY (dal/kadhi/rajma/chana/matar paneer/palak dal/santula/aloo gobi gravy)
+2. DRY SABZI (torai/bhindi/beans+carrot/cauliflower+matar+aloo/cabbage/baingan bharta/beetroot) — ALWAYS, including paneer days
+3. PROTEIN (chicken/fish/paneer — on paneer days matar paneer is both gravy and protein)
+4. RICE or ROTI:
+   - Fish days → Rice BOTH meals (lunch + dinner)
+   - Dal days → Rice BOTH meals
+   - All other days → Rice at lunch, Roti at dinner
+
+EXAMPLES (follow exactly):
+Thu (paneer): Lunch = Matar paneer + Bhindi fry + Rice | Dinner = Matar paneer + Bhindi fry + Roti
+Mon (chicken): Lunch = Dal tadka + Torai sabzi + Chicken sukka + Rice | Dinner = same + Roti
+Tue (fish): Lunch = Kadhi + Beans carrot sabzi + Mackerel dry fry + Rice | Dinner = same + Rice
 
 PER SITTING MACROS (one meal = lunch OR dinner):
 Chicken: Supriya 32g protein | 400 kcal | Vivek 42g protein | 500 kcal
@@ -37,8 +47,9 @@ Dal/rajma: Supriya 20g protein | 350 kcal | Vivek 28g protein | 430 kcal
 Evening snack: ~8g protein | 120 kcal each
 
 DAILY TOTAL CHECK (chicken day example):
-Supriya: 38+32+32+8 = 110g ✅ | 480+400+400+120 = 1,400+oil/curd ~1,600 kcal ✅
-Vivek: 38+42+42+8 = 130g ✅ | 520+500+500+120 = 1,640+oil/curd ~1,900 kcal ✅
+Supriya: 38+32+32+8 = 110g protein | 480+400+400+120+200(oil/curd) = 1,600 kcal ✅ (target 1,846)
+Vivek: 38+42+42+8 = 130g protein | 520+500+500+120+300(oil/curd) = 1,940 kcal ✅ (target 2,709)
+NOTE: Vivek needs bigger portions — 1.5x Supriya's rice/roti to reach his calorie target
 
 RULES:
 - Kadhi ALWAYS with fish dry fry (never chicken)

@@ -30,23 +30,9 @@ export default function App() {
   const [profiles, setProfiles] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sc_profiles") || "null"); } catch { return null; }
   });
-
-  function handleOnboardingComplete(data) {
-    localStorage.setItem("sc_profiles", JSON.stringify(data));
-    setProfiles(data);
-  }
-
-  if (!profiles) return <Onboarding onComplete={handleOnboardingComplete} />;
-
-  // Use stored goals or hardcoded targets
-  const supriya = profiles?.find(p => p.name === "Supriya") || {};
-  const vivek = profiles?.find(p => p.name === "Vivek") || {};
-  const combinedCalories = (supriya.calorie_goal || 1700) + (vivek.calorie_goal || 2000);
-  const combinedProtein = (supriya.protein_goal || 100) + (vivek.protein_goal || 120);
-
   const [messages, setMessages] = useState([{
     role: "assistant", type: "text",
-    content: `Hey! 👋 I'm your Sous Chef agent.\n\nI know your macros, your dishes, and your budget. ${isVegDay ? "🥦 Today is veg day!" : "🥩 Non-veg day today."}\n\nCombined targets: ${combinedProtein}g protein | ${combinedCalories} kcal\n\nWhat do you need?`,
+    content: `Hey! 👋 I'm your Sous Chef agent.\n\nI know your macros, your dishes, and your budget. ${isVegDay ? "🥦 Today is veg day!" : "🥩 Non-veg day today."}\n\nSupriya: 1,846 kcal | 130g protein\nVivek: 2,709 kcal | 166g protein\n\nWhat do you need?`,
   }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,6 +43,13 @@ export default function App() {
   const [newExp, setNewExp] = useState({ platform: "blinkit", amount: "", note: "" });
   const [checkedItems, setCheckedItems] = useState({});
   const bottomRef = useRef();
+
+  function handleOnboardingComplete(data) {
+    localStorage.setItem("sc_profiles", JSON.stringify(data));
+    setProfiles(data);
+  }
+
+  if (!profiles) return <Onboarding onComplete={handleOnboardingComplete} />;
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
