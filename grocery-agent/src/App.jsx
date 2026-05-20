@@ -1,11 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-
+import { supabase } from "./supabase.js";
 import Onboarding from "./Onboarding.jsx";
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat"];
 const VEG_DAYS = ["Thu"];
@@ -43,8 +38,11 @@ export default function App() {
 
   if (!profiles) return <Onboarding onComplete={handleOnboardingComplete} />;
 
-  const combinedCalories = profiles.reduce((a, b) => a + (b.calories || 0), 0);
-  const combinedProtein = profiles.reduce((a, b) => a + (b.protein || 0), 0);
+  // Use stored goals or hardcoded targets
+  const supriya = profiles?.find(p => p.name === "Supriya") || {};
+  const vivek = profiles?.find(p => p.name === "Vivek") || {};
+  const combinedCalories = (supriya.calorie_goal || 1700) + (vivek.calorie_goal || 2000);
+  const combinedProtein = (supriya.protein_goal || 100) + (vivek.protein_goal || 120);
 
   const [messages, setMessages] = useState([{
     role: "assistant", type: "text",

@@ -1,178 +1,129 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SUPRIYA_EMAIL = process.env.SUPRIYA_EMAIL;
 const VIVEK_EMAIL = process.env.VIVEK_EMAIL;
 
-// ── Compact system prompt (~800 tokens) ──────────────────────────
-const SYSTEM_PROMPT = `You are Sous Chef, a meal planning agent for Supriya (100g protein, 1700kcal) and Vivek (120g protein, 2000kcal) in Bengaluru. Combined: 220g protein, 3700kcal.
+// ── SYSTEM PROMPT — kept minimal ─────────────────────────────────
+const SYSTEM_PROMPT = `You are Sous Chef, a meal planning agent for Supriya and Vivek in Bengaluru, India.
 
-FIXED BREAKFAST (every day, never changes):
-8 egg white bhurji (shared) + 2 bread slices each + protein smoothie with fruit
-Breakfast macros:
-  Supriya: ~40g protein | 480 kcal
-  Vivek: ~40g protein | 520 kcal
+TARGETS (fixed, do not change):
+Supriya: 1,846 kcal/day | 130g protein/day | Fat loss
+Vivek: 2,709 kcal/day | 166g protein/day | Fat loss + muscle
+Combined: 4,555 kcal | 296g protein
 
-PORTION SPLIT (Supriya eats less than Vivek):
-  Supriya: 40% of shared meals
-  Vivek: 60% of shared meals
+FIXED BREAKFAST every day (never changes):
+8 egg white bhurji + 2 bread slices + protein smoothie with fruit
+Supriya: 38g protein | 480 kcal
+Vivek: 38g protein | 520 kcal
 
-WEEKLY PROTEIN ROTATION:
-Mon/Wed/Sat: Chicken day — breast 450g + curry cut 500g (mixed together for curry/sukka)
-Tue/Fri: Mackerel dry fry 500g ₹350 (or sardines ₹180 as budget option)
-Thu: Paneer 400g — VEG DAY ONLY (no meat/fish/eggs)
-Sun BF: Paratha (aloo/methi/mooli) + egg bhurji OR chicken keema
-Sun lunch/dinner: Fish day OR paneer day
+WEEKLY ROTATION:
+Mon/Wed/Sat: Chicken (breast 450g + curry cut 500g mixed together for ONE dish)
+Tue/Fri/Sun: Fish dry fry (mackerel 500g or sardines — NO fish curry, dry fry only)
+Thu: Paneer 400g — STRICT VEG DAY
 
-PANEER RULE: On paneer days, matar paneer IS the main protein + gravy. NO separate chicken/fish.
-CHICKEN RULE: Chicken breast + curry cut mixed together for ONE dish (sukka or curry). NOT two separate dishes.
+MEAL STRUCTURE per day (lunch = dinner, cooked once):
+= 1 gravy + 1 dry sabzi + protein + rice OR roti
+Fish/dal days → rice both meals
+Other days → rice lunch, roti/paratha dinner
 
-CRITICAL CALORIE RULES:
-- Supriya target: 1700 kcal/day | Vivek target: 2000 kcal/day
-- Lunch and dinner are THE SAME DISH but show DIFFERENT CALORIE COUNTS per sitting
-- Supriya eats SMALLER portions than Vivek (she eats less rice/roti)
+PER SITTING MACROS (one meal = lunch OR dinner):
+Chicken: Supriya 32g protein | 400 kcal | Vivek 42g protein | 500 kcal
+Fish: Supriya 30g protein | 370 kcal | Vivek 40g protein | 460 kcal  
+Paneer: Supriya 24g protein | 380 kcal | Vivek 32g protein | 470 kcal
+Dal/rajma: Supriya 20g protein | 350 kcal | Vivek 28g protein | 430 kcal
+Evening snack: ~8g protein | 120 kcal each
 
-PER SITTING CALORIES (one meal = lunch OR dinner, not both):
-BREAKFAST (same for both):
-  Supriya: 38g protein | 480 kcal
-  Vivek: 38g protein | 520 kcal
+DAILY TOTAL CHECK (chicken day example):
+Supriya: 38+32+32+8 = 110g ✅ | 480+400+400+120 = 1,400+oil/curd ~1,600 kcal ✅
+Vivek: 38+42+42+8 = 130g ✅ | 520+500+500+120 = 1,640+oil/curd ~1,900 kcal ✅
 
-CHICKEN MEAL (per sitting — lunch OR dinner):
-  Supriya: 30g protein | 380 kcal (small portion rice/roti + less chicken)
-  Vivek: 40g protein | 480 kcal (larger portion rice/roti + more chicken)
-
-FISH MEAL (per sitting):
-  Supriya: 28g protein | 350 kcal
-  Vivek: 38g protein | 440 kcal
-
-PANEER MEAL (per sitting — matar paneer IS the protein, no separate paneer curry):
-  Supriya: 22g protein | 360 kcal
-  Vivek: 30g protein | 450 kcal
-
-DAL/RAJMA/CHANA MEAL (per sitting):
-  Supriya: 18g protein | 340 kcal
-  Vivek: 25g protein | 420 kcal
-
-EVENING SNACK:
-  Pesarettu: Supriya 8g | 120 kcal | Vivek 8g | 120 kcal
-  Sprouted moong/chana chaat: Supriya 7g | 100 kcal | Vivek 7g | 100 kcal
-  Epigamia Greek yogurt: Supriya 25g | 150 kcal | Vivek 25g | 150 kcal
-  Fruit: Supriya 2g | 80 kcal | Vivek 2g | 80 kcal
-
-DAILY TOTAL CALCULATION EXAMPLE (Chicken day):
-  Supriya: 38 + 30 + 30 + 8 = ~106g protein | 480 + 380 + 380 + 120 = ~1,360 kcal ✅ (target 1700)
-  Vivek: 38 + 40 + 40 + 8 = ~126g protein | 520 + 480 + 480 + 120 = ~1,600 kcal ✅ (target 2000)
-
-NOTE: Add 200-300 kcal for cooking oil, curd, and incidentals to reach targets.
-NEVER show lunch and dinner with the same exact calorie number — they're the same dish but show it once each.
-
-MEAL STRUCTURE (lunch = dinner, cooked once):
-Every meal = 1 GRAVY + 1 DRY SABZI + protein (curry OR grill) + rice/roti
-- Fish days → Rice BOTH meals
-- Dal days → Rice BOTH meals  
-- Other days → Rice lunch, Roti/Paratha dinner
-
-STRICT RULES:
-- Kadhi ALWAYS with seafood dry fry (never chicken)
-- Rajma/chana days → NO meat
-- Torai = ALWAYS dry sabzi, never curry
-- Never repeat same combo within a week
+RULES:
+- Kadhi ALWAYS with fish dry fry (never chicken)
+- Rajma/chana days = no meat same day
+- Torai = always dry sabzi, never curry  
+- Never repeat combo in same week
+- Paneer on Thu = matar paneer IS the protein, no separate protein needed
+- Sunday BF = paratha (aloo/methi/mooli) + egg bhurji or keema
 
 GRAVIES: dal tadka, palak dal, rajma, black chana, matar paneer, paneer bhurji matar, kadhi, santula, aloo gobi gravy
-DRY SABZI: torai, bhindi, beans+carrot, cauliflower+matar+aloo+carrot, cabbage, baingan bharta, beetroot, aloo gobi
+DRY SABZI: torai, bhindi, beans+carrot, cauliflower+matar+aloo+carrot, cabbage, baingan bharta, beetroot
 
-EVENING SNACK: pesarettu with coconut chutney / sprouted moong or chana chaat / Epigamia Greek yogurt / fruit
+EVENING SNACK (rotate): pesarettu + coconut chutney | sprouted moong/chana chaat | Epigamia Greek yogurt | fruit
 
-BUDGET: Weekly ₹4,000-4,500 | Monthly target ₹32,000
-REAL PROBLEM: Impulse Instamart orders (was ₹33k/month). Solution: ONE planned weekly shop Monday morning.
-
-RESPONSE FORMAT:
-- Plain text with emojis, no JSON tool calls visible, no markdown tables
-- Always show macros per person per meal
-- After user confirms plan → output shopping list as: {"shoppingList":[{"item":"","qty":"","platform":"licious|instamart|mango","estimatedPrice":0}]}
-- Keep responses concise — max 300 words`;
+RESPONSE RULES:
+- Max 200 words per response
+- No markdown tables, no raw JSON visible
+- Always show per-person macros separately
+- After user CONFIRMS plan → output: {"shoppingList":[{"item":"","qty":"","platform":"licious|instamart|mango","estimatedPrice":0}]}
+- For budget questions use: May spend ₹39,108 so far, target ₹38,000/month`;
 
 // ── Tools ─────────────────────────────────────────────────────────
 const TOOLS = [
   {
-    type: 'function',
+    type: "function",
     function: {
-      name: 'get_meal_history',
-      description: 'Get meals eaten in the last 14 days to avoid repetition',
-      parameters: { type: 'object', properties: {}, required: [] }
+      name: "get_meal_history",
+      description: "Get last 14 days of meals to avoid repetition",
+      parameters: { type: "object", properties: {}, required: [] }
     }
   },
   {
-    type: 'function',
+    type: "function",
     function: {
-      name: 'get_prices',
-      description: 'Get current prices for groceries from the database',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'save_meal_plan',
-      description: 'Save confirmed meal plan to database',
+      name: "save_meal_plan",
+      description: "Save confirmed meal plan",
       parameters: {
-        type: 'object',
+        type: "object",
         properties: {
-          date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
-          breakfast: { type: 'string' },
-          lunch: { type: 'string' },
-          dinner: { type: 'string' },
-          evening_snack: { type: 'string' },
-          total_protein: { type: 'number' },
-          is_veg: { type: 'boolean' }
+          date: { type: "string" },
+          lunch: { type: "string" },
+          dinner: { type: "string" },
+          is_veg: { type: "boolean" },
+          total_protein: { type: "number" }
         },
-        required: ['date', 'lunch', 'dinner']
+        required: ["date", "lunch"]
       }
     }
   },
   {
-    type: 'function',
+    type: "function",
     function: {
-      name: 'get_expenses',
-      description: 'Get current month expenses and total',
-      parameters: { type: 'object', properties: {}, required: [] }
+      name: "get_expenses",
+      description: "Get this month's expenses",
+      parameters: { type: "object", properties: {}, required: [] }
     }
   },
   {
-    type: 'function',
+    type: "function",
     function: {
-      name: 'save_expense',
-      description: 'Log a new grocery expense',
+      name: "save_expense",
+      description: "Log a grocery expense",
       parameters: {
-        type: 'object',
+        type: "object",
         properties: {
-          platform: { type: 'string', enum: ['licious', 'instamart', 'blinkit', 'mango', 'swiggy'] },
-          amount: { type: 'number' },
-          note: { type: 'string' }
+          platform: { type: "string" },
+          amount: { type: "number" },
+          note: { type: "string" }
         },
-        required: ['platform', 'amount']
+        required: ["platform", "amount"]
       }
     }
   },
   {
-    type: 'function',
+    type: "function",
     function: {
-      name: 'send_grocery_email',
-      description: 'Send grocery list email to Supriya and Vivek',
+      name: "send_email",
+      description: "Email grocery list to Supriya and Vivek",
       parameters: {
-        type: 'object',
+        type: "object",
         properties: {
-          subject: { type: 'string' },
-          items: { type: 'array', items: { type: 'object' } },
-          total: { type: 'number' }
+          items: { type: "array", items: { type: "object" } },
+          total: { type: "number" }
         },
-        required: ['items', 'total']
+        required: ["items", "total"]
       }
     }
   }
@@ -181,212 +132,148 @@ const TOOLS = [
 // ── Tool executor ─────────────────────────────────────────────────
 async function executeTool(name, args) {
   switch (name) {
-    case 'get_meal_history': {
-      const twoWeeksAgo = new Date();
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    case "get_meal_history": {
+      const since = new Date();
+      since.setDate(since.getDate() - 14);
       const { data } = await supabase
-        .from('meal_plans')
-        .select('planned_date, lunch, dinner')
-        .gte('planned_date', twoWeeksAgo.toISOString().split('T')[0])
-        .order('planned_date', { ascending: false });
-      return data?.length ? data : 'No meal history yet';
+        .from("meal_plans")
+        .select("planned_date, lunch, dinner")
+        .gte("planned_date", since.toISOString().split("T")[0])
+        .order("planned_date", { ascending: false });
+      return data?.length ? data.map(d => `${d.planned_date}: ${d.lunch}`).join(", ") : "No history";
     }
-
-    case 'get_prices': {
-      const { data } = await supabase
-        .from('prices')
-        .select('item, quantity, price_inr, platform')
-        .order('category');
-      return data || [];
-    }
-
-    case 'save_meal_plan': {
-      const { data } = await supabase.from('meal_plans').upsert({
+    case "save_meal_plan": {
+      await supabase.from("meal_plans").upsert({
         planned_date: args.date,
-        day_of_week: new Date(args.date).toLocaleDateString('en', { weekday: 'short' }),
+        day_of_week: new Date(args.date).toLocaleDateString("en", { weekday: "short" }),
         is_veg: args.is_veg || false,
-        breakfast: args.breakfast || '8 egg white bhurji + bread + smoothie',
         lunch: args.lunch,
-        dinner: args.dinner,
-        evening_snack: args.evening_snack,
+        dinner: args.dinner || args.lunch,
         total_protein: args.total_protein,
         confirmed: true,
-      }).select();
-      return { success: true, saved: data };
+      });
+      return { success: true };
     }
-
-    case 'get_expenses': {
+    case "get_expenses": {
       const now = new Date();
-      const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const { data } = await supabase
-        .from('expenses')
-        .select('*')
-        .gte('expense_date', monthStr + '-01')
-        .order('expense_date', { ascending: false });
-      const total = (data || []).reduce((sum, e) => sum + e.amount, 0);
+        .from("expenses")
+        .select("platform, amount, note, expense_date")
+        .gte("expense_date", month + "-01");
+      const total = (data || []).reduce((s, e) => s + e.amount, 0);
       const byPlatform = {};
-      (data || []).forEach(e => {
-        byPlatform[e.platform] = (byPlatform[e.platform] || 0) + e.amount;
+      (data || []).forEach(e => { byPlatform[e.platform] = (byPlatform[e.platform] || 0) + e.amount; });
+      return { total, byPlatform, month };
+    }
+    case "save_expense": {
+      await supabase.from("expenses").insert({
+        platform: args.platform, amount: args.amount,
+        note: args.note, expense_date: new Date().toISOString().split("T")[0]
       });
-      return { total, byPlatform, count: (data || []).length };
+      return { success: true };
     }
-
-    case 'save_expense': {
-      const { data } = await supabase.from('expenses').insert({
-        platform: args.platform,
-        amount: args.amount,
-        note: args.note,
-        expense_date: new Date().toISOString().split('T')[0],
-      }).select();
-      return { success: true, saved: data };
-    }
-
-    case 'send_grocery_email': {
-      if (!RESEND_API_KEY) return { error: 'No Resend API key configured' };
-      
+    case "send_email": {
+      if (!RESEND_API_KEY) return { error: "Resend not configured" };
       const grouped = {};
-      (args.items || []).forEach(item => {
-        const p = item.platform || 'instamart';
-        if (!grouped[p]) grouped[p] = [];
-        grouped[p].push(item);
+      (args.items || []).forEach(i => {
+        if (!grouped[i.platform]) grouped[i.platform] = [];
+        grouped[i.platform].push(i);
       });
-
-      const platformEmojis = { licious: '🥩', instamart: '🛍️', blinkit: '💛', mango: '🏪' };
-      
-      const htmlBody = `
-        <h2>🍳 Sous Chef — Weekly Grocery List</h2>
-        <p>Estimated total: <strong>₹${args.total?.toLocaleString('en-IN')}</strong></p>
-        ${Object.entries(grouped).map(([platform, items]) => `
-          <h3>${platformEmojis[platform] || '🛒'} ${platform.charAt(0).toUpperCase() + platform.slice(1)}</h3>
-          <ul>${items.map(i => `<li>${i.item} — ${i.qty} <strong>₹${i.estimatedPrice}</strong></li>`).join('')}</ul>
-        `).join('')}
-        <p><em>Order everything Monday morning for the week. One shop = no impulse orders!</em></p>
-      `;
-
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-        },
+      const emoji = { licious: "🥩", instamart: "🛍️", blinkit: "💛", mango: "🏪" };
+      const html = `<h2>🍳 Sous Chef Weekly Groceries</h2>
+        <p>Total: <b>₹${(args.total || 0).toLocaleString("en-IN")}</b> — order everything Monday morning!</p>
+        ${Object.entries(grouped).map(([p, items]) =>
+          `<h3>${emoji[p] || "🛒"} ${p}</h3><ul>${items.map(i =>
+            `<li>${i.item} ${i.qty} — ₹${i.estimatedPrice}</li>`).join("")}</ul>`
+        ).join("")}`;
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${RESEND_API_KEY}` },
         body: JSON.stringify({
-          from: 'Sous Chef <onboarding@resend.dev>',
+          from: "Sous Chef <onboarding@resend.dev>",
           to: [SUPRIYA_EMAIL, VIVEK_EMAIL].filter(Boolean),
-          subject: args.subject || '🛒 Sous Chef — Weekly Grocery List',
-          html: htmlBody,
+          subject: "🛒 Weekly Grocery List",
+          html,
         }),
       });
-      const data = await res.json();
-      return res.ok ? { success: true, id: data.id } : { error: data.message };
+      return res.ok ? { success: true } : { error: "Email failed" };
     }
-
-    default:
-      return { error: `Unknown tool: ${name}` };
+    default: return { error: "Unknown tool" };
   }
 }
 
-// ── Groq call with native tool use ────────────────────────────────
-async function callGroq(messages, useTools = true) {
-  const body = {
-    model: 'llama-3.1-8b-instant',
-    max_tokens: 1000,
-    temperature: 0.3,
-    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
-  };
-  if (useTools) body.tools = TOOLS;
-
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify(body),
+// ── Groq call ─────────────────────────────────────────────────────
+async function callGroq(messages) {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_API_KEY}` },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      max_tokens: 800,
+      temperature: 0.2,
+      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+      tools: TOOLS,
+    }),
   });
-
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
   return data.choices?.[0]?.message;
 }
 
-// ── Main handler ──────────────────────────────────────────────────
+// ── Handler ───────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
     const { messages } = req.body;
-    
-    // Keep only last 4 messages to save tokens
-    const recentMessages = messages.slice(-4);
-    
-    // Add today's date context (minimal tokens)
     const now = new Date();
-    const dateContext = {
-      role: 'user',
-      content: `[Context: Today is ${now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}. Day ${now.getDate()} of month.]`
-    };
-    
-    let agentMessages = [dateContext, ...recentMessages];
-    let finalResponse = '';
+    const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+    const isVeg = now.getDay() === 4; // Thursday
+
+    // Only last 3 messages + date context
+    const ctx = [{
+      role: "user",
+      content: `Today: ${today}${isVeg ? " — VEG DAY" : ""}. Day ${now.getDate()}/31 of month.`
+    }];
+    const recent = (messages || []).slice(-3);
+    let agentMsgs = [...ctx, ...recent];
+    let finalText = "";
     let parsed = null;
 
-    // Agentic loop — max 5 tool calls
-    for (let i = 0; i < 5; i++) {
-      const message = await callGroq(agentMessages);
-      
-      // No tool calls — we have final response
-      if (!message.tool_calls || message.tool_calls.length === 0) {
-        finalResponse = message.content || '';
-        break;
-      }
+    // Agent loop — max 3 tool calls
+    for (let i = 0; i < 3; i++) {
+      const msg = await callGroq(agentMsgs);
+      if (!msg.tool_calls?.length) { finalText = msg.content || ""; break; }
 
-      // Execute all tool calls
-      agentMessages.push(message);
-      
-      for (const toolCall of message.tool_calls) {
-        const toolName = toolCall.function.name;
-        let toolArgs = {};
-        try { toolArgs = JSON.parse(toolCall.function.arguments); } catch {}
-        
-        console.log(`Executing tool: ${toolName}`);
-        const result = await executeTool(toolName, toolArgs);
-        
-        agentMessages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result),
-        });
+      agentMsgs.push(msg);
+      for (const tc of msg.tool_calls) {
+        let args = {};
+        try { args = JSON.parse(tc.function.arguments); } catch {}
+        const result = await executeTool(tc.function.name, args);
+        agentMsgs.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
       }
     }
 
     // Clean response
-    finalResponse = finalResponse
-      .replace(/```json[\s\S]*?```/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    finalText = finalText.replace(/```json[\s\S]*?```/g, "").replace(/\n{3,}/g, "\n\n").trim();
 
-    // Extract shopping list if present
-    const jsonMatch = finalResponse.match(/\{"shoppingList"[\s\S]*?\]\s*\}/);
-    if (jsonMatch) {
+    // Extract shopping list
+    const match = finalText.match(/\{"shoppingList"[\s\S]*?\]\s*\}/);
+    if (match) {
       try {
-        parsed = JSON.parse(jsonMatch[0]);
-        finalResponse = finalResponse.replace(jsonMatch[0], '').trim();
-        // Save shopping list
-        const weekStart = now.toISOString().split('T')[0];
-        await supabase.from('shopping_items').delete().eq('week_start', weekStart);
+        parsed = JSON.parse(match[0]);
+        finalText = finalText.replace(match[0], "").trim();
+        const week = now.toISOString().split("T")[0];
+        await supabase.from("shopping_items").delete().eq("week_start", week);
         if (parsed.shoppingList?.length) {
-          await supabase.from('shopping_items').insert(
-            parsed.shoppingList.map(item => ({ ...item, week_start: weekStart }))
-          );
+          await supabase.from("shopping_items").insert(parsed.shoppingList.map(i => ({ ...i, week_start: week })));
         }
-      } catch (e) {
-        console.log('Shopping list parse error:', e.message);
-      }
+      } catch {}
     }
 
-    res.status(200).json({ response: finalResponse, parsed });
+    res.status(200).json({ response: finalText, parsed });
   } catch (err) {
-    console.error('Agent error:', err);
+    console.error("Agent error:", err.message);
     res.status(500).json({ error: err.message });
   }
 }
